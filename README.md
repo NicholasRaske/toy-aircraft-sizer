@@ -26,6 +26,21 @@ pip install -r requirements.txt
 
 ## Running it
 
+### Kiosk screen
+
+The aircraft-mounted display: a fullscreen panel sized for a 3.5 inch screen,
+with large touch targets and no browser anywhere in the stack.
+
+```bash
+python kiosk.py                # windowed, at true panel size (480x320)
+python kiosk.py --fullscreen   # on the aircraft; Escape exits
+```
+
+Needs Tk, which ships with Python on Windows and macOS. On Debian or Raspberry
+Pi OS: `sudo apt install python3-tk`.
+
+### Command line
+
 ```bash
 python main.py --mode loiter --duration 1.0 --payload 4.0
 ```
@@ -69,6 +84,12 @@ Two entry points, both pure functions over plain data:
 Every iterative solve in this project — fuel mass for a requested duration,
 tail extension for a target static margin — lives in `recommend`, expressed as
 repeated calls to `analyze`.
+
+`build_assembly_card(recommendation) -> AssemblyCard` is the display edge. It
+returns structured, display-ready data; `render_assembly_card` renders that to
+text, and the kiosk renders the same structure to widgets. Interfaces hold
+layout and event plumbing only — every decision about units, wording and
+severity is made once, in `assembly_card.py`, where it can be tested.
 
 ## Conventions
 
