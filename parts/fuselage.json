@@ -1,0 +1,16 @@
+{
+  "_note": "Stations are metres aft of the nose datum. Boom travel and detent spacing are placeholders pending plan section 10, question 2.",
+  "fuselage": {
+    "name": "Standard fuselage",
+    "structure_mass_kg": 8.5,
+    "structure_centre_of_mass_station_m": 0.75,
+    "payload_station_m": 0.55,
+    "fuel_tank_station_m": 0.7,
+    "max_fuel_mass_kg": 3.0,
+    "tail_boom": {
+      "max_extension_m": 0.4,
+      "detent_spacing_m": 0.01,
+      "mass_per_metre_kg_per_m": 0.35
+    }
+  }
+}

@@ -1,0 +1,7 @@
+# Runtime dependencies are deliberately empty at B1: the physics package is
+# pure standard-library Python. numpy arrives when the drag polar does, and
+# streamlit at T6. Every entry here must be pinned and vendored into
+# wheelhouse/ before the tool ships, because the aircraft has no network.
+
+# Development only.
+pytest==8.3.4

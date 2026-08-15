@@ -1,0 +1,27 @@
+{
+  "_note": "B1 catalogue: two wings only, chosen as opposite extremes so that mode ranking is visibly exercised. The Sport and Hauler wings arrive with the full part set.",
+  "wings": [
+    {
+      "name": "Surveyor",
+      "airfoil": "NACA 4412",
+      "reference_area_m2": 1.6,
+      "span_m": 3.8,
+      "root_chord_m": 0.48,
+      "tip_chord_m": 0.36,
+      "max_lift_coefficient": 1.4,
+      "mass_kg": 3.2,
+      "aerodynamic_centre_station_m": 0.62
+    },
+    {
+      "name": "Dash",
+      "airfoil": "NACA 2409",
+      "reference_area_m2": 1.0,
+      "span_m": 2.1,
+      "root_chord_m": 0.6,
+      "tip_chord_m": 0.35,
+      "max_lift_coefficient": 1.25,
+      "mass_kg": 2.4,
+      "aerodynamic_centre_station_m": 0.6
+    }
+  ]
+}

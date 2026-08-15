@@ -1,0 +1,13 @@
+{
+  "_note": "Exactly one engine is supported. The quoted fuel consumption is the best-point figure; the load-dependent curve that loiter accuracy actually depends on arrives at T5 (plan section 4.6).",
+  "engines": [
+    {
+      "name": "30 cc two-stroke",
+      "max_shaft_power_w": 2600.0,
+      "best_specific_fuel_consumption_g_per_kwh": 550.0,
+      "propeller_efficiency": 0.7,
+      "mass_kg": 2.6,
+      "station_m": 0.18
+    }
+  ]
+}

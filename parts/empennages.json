@@ -1,0 +1,19 @@
+{
+  "_note": "B1 catalogue: two empennages. The V-tail arrives with the full part set, since a coupled-control surface needs an equivalent-area treatment the model does not have yet.",
+  "empennages": [
+    {
+      "name": "Standard",
+      "horizontal_tail_area_m2": 0.32,
+      "vertical_tail_area_m2": 0.16,
+      "mass_kg": 1.1,
+      "nominal_aerodynamic_centre_station_m": 1.85
+    },
+    {
+      "name": "Compact",
+      "horizontal_tail_area_m2": 0.22,
+      "vertical_tail_area_m2": 0.11,
+      "mass_kg": 0.8,
+      "nominal_aerodynamic_centre_station_m": 1.55
+    }
+  ]
+}
