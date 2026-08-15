@@ -32,10 +32,10 @@ from aerosizer.performance import (
     stall_speed,
 )
 
-# Surveyor at the baseline 21.4 kg, sea level ISA:
+# Surveyor at the baseline 21.4 kg, sea level ISA, CL max 1.318:
 #   W = 21.4 x 9.80665 = 209.86 N
-#   Vs = sqrt(2 x 209.86 / (1.225 x 1.6 x 1.4)) = 12.37 m/s
-EXPECTED_BASELINE_STALL_SPEED = 12.37
+#   Vs = sqrt(2 x 209.86 / (1.225 x 1.6 x 1.318)) = 12.75 m/s
+EXPECTED_BASELINE_STALL_SPEED = 12.75
 
 
 def test_sea_level_density_matches_the_standard_atmosphere():
@@ -134,18 +134,23 @@ def test_minimum_drag_speed_achieves_the_polar_best_lift_to_drag(baseline_config
     assert actual_power == pytest.approx(expected_power, rel=0.005)
 
 
-def test_loiter_is_stall_limited_rather_than_power_limited(baseline_configuration):
-    """The finding that motivated carrying a reason on every speed.
+def test_loiter_speed_is_set_by_the_margin_we_keep_over_stall(baseline_configuration):
+    """Why every speed carries the reason it is limited.
 
-    Minimum-power flight at this wing loading needs a lift coefficient beyond
-    what the wing can reach, so the textbook best-endurance speed is
-    unattainable. Reporting it would promise an endurance the aircraft cannot
-    fly -- quietly, and by several minutes.
+    With the earlier hand-guessed drag, minimum-power flight was outright
+    unattainable: it needed more lift than the wing could make. With drag
+    computed from the actual geometry it has become attainable, but it is
+    still slower than we are willing to instruct.
+
+    The loiter speed is set by stall margin either way, and the distinction
+    matters: one was a physical impossibility, this is a safety decision.
     """
     mass = mass_properties(baseline_configuration).all_up_mass
     envelope = speed_envelope(baseline_configuration, mass, SEA_LEVEL_ISA)
 
-    assert envelope.min_power_speed < envelope.stall_speed
+    assert envelope.min_power_speed > envelope.stall_speed
+    assert envelope.min_power_speed < minimum_safe_speed(envelope.stall_speed)
+
     assert envelope.loiter_speed.limited_by == LIMITED_BY_STALL_MARGIN
     assert envelope.loiter_speed.value == pytest.approx(minimum_safe_speed(envelope.stall_speed))
     assert envelope.loiter_speed.margin == 0.0

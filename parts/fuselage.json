@@ -1,10 +1,10 @@
 {
-  "_note": "Stations are metres aft of the nose datum. Boom travel and detent spacing are placeholders pending plan section 10, question 2.",
+  "_note": "Stations are metres aft of the nose datum. clean_flat_plate_area_m2 is generated from the body shape by tools/generate_parts.py; excrescence_flat_plate_area_m2 is hand-authored and covers landing gear, payload pod, engine cooling and antennas.",
   "fuselage": {
     "name": "Standard fuselage",
     "structure_mass_kg": 8.5,
     "structure_centre_of_mass_station_m": 0.75,
-    "equivalent_flat_plate_area_m2": 0.028,
+    "excrescence_flat_plate_area_m2": 0.017,
     "payload_station_m": 0.55,
     "fuel_tank_station_m": 0.7,
     "max_fuel_mass_kg": 3.0,
@@ -13,6 +13,8 @@
       "max_extension_m": 0.4,
       "detent_spacing_m": 0.01,
       "mass_per_metre_kg_per_m": 0.35
-    }
-  }
+    },
+    "clean_flat_plate_area_m2": 0.002617
+  },
+  "_generated": "aerodynamic fields written by tools/generate_parts.py"
 }

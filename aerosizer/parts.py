@@ -26,9 +26,16 @@ class Wing:
     root_chord: float
     tip_chord: float
     max_lift_coefficient: float
-    equivalent_flat_plate_area: float
+    clean_flat_plate_area: float
+    excrescence_flat_plate_area: float
+    oswald_efficiency: float
     mass: float
     aerodynamic_centre_station: float
+
+    @property
+    def flat_plate_area(self) -> float:
+        """Total drag area: the clean shape, plus what is bolted to it."""
+        return self.clean_flat_plate_area + self.excrescence_flat_plate_area
 
     @property
     def aspect_ratio(self) -> float:
@@ -56,9 +63,14 @@ class Empennage:
     name: str
     horizontal_tail_area: float
     vertical_tail_area: float
-    equivalent_flat_plate_area: float
+    clean_flat_plate_area: float
+    excrescence_flat_plate_area: float
     mass: float
     nominal_aerodynamic_centre_station: float
+
+    @property
+    def flat_plate_area(self) -> float:
+        return self.clean_flat_plate_area + self.excrescence_flat_plate_area
 
     def aerodynamic_centre_station(self, tail_extension: float) -> float:
         return self.nominal_aerodynamic_centre_station + tail_extension
@@ -96,11 +108,16 @@ class Fuselage:
     name: str
     structure_mass: float
     structure_centre_of_mass_station: float
-    equivalent_flat_plate_area: float
+    clean_flat_plate_area: float
+    excrescence_flat_plate_area: float
     payload_station: float
     fuel_tank_station: float
     max_fuel_mass: float
     tail_boom: TailBoom
+
+    @property
+    def flat_plate_area(self) -> float:
+        return self.clean_flat_plate_area + self.excrescence_flat_plate_area
 
 
 @dataclass(frozen=True)

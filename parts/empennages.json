@@ -5,17 +5,22 @@
       "name": "Standard",
       "horizontal_tail_area_m2": 0.32,
       "vertical_tail_area_m2": 0.16,
-      "equivalent_flat_plate_area_m2": 0.008,
+      "equivalent_flat_plate_area_m2_REMOVED": 0,
+      "excrescence_flat_plate_area_m2": 0.0008,
       "mass_kg": 1.1,
-      "nominal_aerodynamic_centre_station_m": 1.85
+      "nominal_aerodynamic_centre_station_m": 1.85,
+      "clean_flat_plate_area_m2": 0.003586
     },
     {
       "name": "Compact",
       "horizontal_tail_area_m2": 0.22,
       "vertical_tail_area_m2": 0.11,
-      "equivalent_flat_plate_area_m2": 0.006,
+      "equivalent_flat_plate_area_m2_REMOVED": 0,
+      "excrescence_flat_plate_area_m2": 0.0006,
       "mass_kg": 0.8,
-      "nominal_aerodynamic_centre_station_m": 1.55
+      "nominal_aerodynamic_centre_station_m": 1.55,
+      "clean_flat_plate_area_m2": 0.002757
     }
-  ]
+  ],
+  "_generated": "aerodynamic fields written by tools/generate_parts.py"
 }

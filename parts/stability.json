@@ -1,0 +1,77 @@
+{
+  "_generated": "written by tools/generate_parts.py",
+  "neutral_points": [
+    {
+      "wing": "Surveyor",
+      "empennage": "Standard",
+      "tail_extension_m": [
+        0.0,
+        0.1,
+        0.2,
+        0.3,
+        0.4
+      ],
+      "neutral_point_station_m": [
+        0.8156,
+        0.83231,
+        0.84901,
+        0.86572,
+        0.88242
+      ]
+    },
+    {
+      "wing": "Surveyor",
+      "empennage": "Compact",
+      "tail_extension_m": [
+        0.0,
+        0.1,
+        0.2,
+        0.3,
+        0.4
+      ],
+      "neutral_point_station_m": [
+        0.73173,
+        0.74476,
+        0.75779,
+        0.77083,
+        0.78386
+      ]
+    },
+    {
+      "wing": "Dash",
+      "empennage": "Standard",
+      "tail_extension_m": [
+        0.0,
+        0.1,
+        0.2,
+        0.3,
+        0.4
+      ],
+      "neutral_point_station_m": [
+        0.91421,
+        0.9408,
+        0.96739,
+        0.99398,
+        1.02057
+      ]
+    },
+    {
+      "wing": "Dash",
+      "empennage": "Compact",
+      "tail_extension_m": [
+        0.0,
+        0.1,
+        0.2,
+        0.3,
+        0.4
+      ],
+      "neutral_point_station_m": [
+        0.78421,
+        0.80551,
+        0.82681,
+        0.84811,
+        0.86941
+      ]
+    }
+  ]
+}

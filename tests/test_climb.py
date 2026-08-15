@@ -6,6 +6,7 @@ from dataclasses import replace
 
 import pytest
 
+from aerosizer.aero import drag_polar
 from aerosizer.atmosphere import SEA_LEVEL_ISA, atmosphere_at, weight
 from aerosizer.mass import mass_properties
 from aerosizer.performance import (
@@ -16,7 +17,6 @@ from aerosizer.performance import (
     power_required,
     speed_envelope,
 )
-from aerosizer.aero import drag_polar
 
 
 def test_climb_rate_is_the_excess_power_divided_by_weight(baseline_configuration):

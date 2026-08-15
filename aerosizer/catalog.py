@@ -73,7 +73,9 @@ def _parse_wing(entry: dict[str, Any]) -> Wing:
         root_chord=_positive(entry, "root_chord_m", source),
         tip_chord=_positive(entry, "tip_chord_m", source),
         max_lift_coefficient=_positive(entry, "max_lift_coefficient", source),
-        equivalent_flat_plate_area=_positive(entry, "equivalent_flat_plate_area_m2", source),
+        clean_flat_plate_area=_positive(entry, "clean_flat_plate_area_m2", source),
+        excrescence_flat_plate_area=_positive(entry, "excrescence_flat_plate_area_m2", source),
+        oswald_efficiency=_positive(entry, "oswald_efficiency", source),
         mass=_positive(entry, "mass_kg", source),
         aerodynamic_centre_station=_positive(entry, "aerodynamic_centre_station_m", source),
     )
@@ -96,7 +98,8 @@ def _parse_empennage(entry: dict[str, Any]) -> Empennage:
         name=name,
         horizontal_tail_area=_positive(entry, "horizontal_tail_area_m2", source),
         vertical_tail_area=_positive(entry, "vertical_tail_area_m2", source),
-        equivalent_flat_plate_area=_positive(entry, "equivalent_flat_plate_area_m2", source),
+        clean_flat_plate_area=_positive(entry, "clean_flat_plate_area_m2", source),
+        excrescence_flat_plate_area=_positive(entry, "excrescence_flat_plate_area_m2", source),
         mass=_positive(entry, "mass_kg", source),
         nominal_aerodynamic_centre_station=_positive(
             entry, "nominal_aerodynamic_centre_station_m", source
@@ -125,7 +128,8 @@ def _parse_fuselage(document: dict[str, Any]) -> Fuselage:
         structure_centre_of_mass_station=_positive(
             entry, "structure_centre_of_mass_station_m", source
         ),
-        equivalent_flat_plate_area=_positive(entry, "equivalent_flat_plate_area_m2", source),
+        clean_flat_plate_area=_positive(entry, "clean_flat_plate_area_m2", source),
+        excrescence_flat_plate_area=_positive(entry, "excrescence_flat_plate_area_m2", source),
         payload_station=_positive(entry, "payload_station_m", source),
         fuel_tank_station=_positive(entry, "fuel_tank_station_m", source),
         max_fuel_mass=_positive(entry, "max_fuel_mass_kg", source),

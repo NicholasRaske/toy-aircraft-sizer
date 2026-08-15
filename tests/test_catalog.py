@@ -48,7 +48,9 @@ def test_mean_aerodynamic_chord_of_untapered_wing_equals_its_chord():
         root_chord=0.5,
         tip_chord=0.5,
         max_lift_coefficient=1.2,
-        equivalent_flat_plate_area=0.02,
+        clean_flat_plate_area=0.012,
+        excrescence_flat_plate_area=0.002,
+        oswald_efficiency=0.78,
         mass=3.0,
         aerodynamic_centre_station=0.6,
     )

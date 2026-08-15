@@ -55,27 +55,33 @@ class DragPolar:
 
 
 def oswald_efficiency(aspect_ratio: float) -> float:
-    """Raymer's estimate for a straight, moderately tapered wing."""
+    """Raymer's estimate for a straight, moderately tapered wing.
+
+    Kept only as a fallback and a point of comparison. The catalogue now
+    carries a per-wing figure computed from the actual geometry, because this
+    correlation is badly optimistic at low aspect ratio -- it credits a stubby
+    wing with 0.92 where a vortex lattice says 0.77.
+    """
     estimate = 1.78 * (1.0 - 0.045 * aspect_ratio**0.68) - 0.64
     return min(estimate, MAXIMUM_OSWALD_EFFICIENCY)
 
 
-def induced_drag_factor(aspect_ratio: float) -> float:
+def induced_drag_factor(aspect_ratio: float, oswald: float) -> float:
     """The ``k`` in CD = CD0 + k CL^2."""
-    return 1.0 / (math.pi * aspect_ratio * oswald_efficiency(aspect_ratio))
+    return 1.0 / (math.pi * aspect_ratio * oswald)
 
 
 def drag_polar(configuration: Configuration) -> DragPolar:
     """Build the polar for one assembled aircraft."""
     wing = configuration.wing
     flat_plate_area = (
-        wing.equivalent_flat_plate_area
-        + configuration.empennage.equivalent_flat_plate_area
-        + configuration.fuselage.equivalent_flat_plate_area
+        wing.flat_plate_area
+        + configuration.empennage.flat_plate_area
+        + configuration.fuselage.flat_plate_area
     )
 
     return DragPolar(
         zero_lift_drag_coefficient=flat_plate_area / wing.reference_area,
-        induced_drag_factor=induced_drag_factor(wing.aspect_ratio),
+        induced_drag_factor=induced_drag_factor(wing.aspect_ratio, wing.oswald_efficiency),
         reference_area=wing.reference_area,
     )
