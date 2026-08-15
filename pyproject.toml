@@ -12,3 +12,8 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
+# E501 is not in ruff's default set, so a configured line-length is otherwise
+# never enforced.
+select = ["E", "F", "I", "W", "RUF"]

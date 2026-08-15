@@ -1,41 +1,35 @@
-"""Choosing between flyable configurations.
+"""Choosing between configurations.
 
-The mode the pilot picks decides what "better" means. Every mode is expressed
-as a figure of merit where **higher is always better**, so that ranking itself
-never has to know which way round a given metric runs.
+There is one objective, and it is not mode-specific. Once the pilot has stated
+a mission, every configuration capable of flying it will fly it -- they differ
+only in what it costs:
+
+    Complete this mission on the least fuel.
+
+So ranking takes no mode. A mode decides which profile is flown and which
+numbers the pilot is asked for, not what counts as better.
 
 Ties are broken deterministically by part name, so the same request always
 produces the same assembly card. Preferring the configuration with the greater
 constraint margin -- the tie-break the plan actually calls for -- arrives with
-the flyability gate at T3, since there are no constraints to have margin
-against until then.
+the flyability gate, since there are no constraints to have margin against
+until then.
 """
 
 from __future__ import annotations
 
-from aerosizer.config import Candidate, FlightMode, Results
-from aerosizer.units import format_duration
-
-OBJECTIVE_DESCRIPTION = {
-    FlightMode.LOITER: "endurance",
-    FlightMode.RANGE: "still-air range",
-    FlightMode.SPEED: "top speed",
-    FlightMode.SHORT_FIELD: "the lowest stall speed",
-}
+from aerosizer.config import Candidate, Results
 
 
-def figure_of_merit(mode: FlightMode, results: Results) -> float:
-    """Score a result under a mode. Higher is better, always."""
-    match mode:
-        case FlightMode.LOITER:
-            return results.endurance
-        case FlightMode.RANGE:
-            return results.still_air_range
-        case FlightMode.SPEED:
-            return results.max_level_speed
-        case FlightMode.SHORT_FIELD:
-            return -results.stall_speed
-    raise ValueError(f"No figure of merit defined for mode {mode}")
+def figure_of_merit(results: Results) -> float:
+    """Score a configuration. Higher is better.
+
+    The real objective is fuel burned over the stated mission, which needs
+    ``fly`` (step 5). Until then lift-to-drag stands in for it: a more
+    efficient aircraft burns less over the same route. Directionally right,
+    and replaced by the real figure at step 6.
+    """
+    return results.lift_to_drag_max
 
 
 def rank_candidates(candidates: tuple[Candidate, ...]) -> tuple[Candidate, ...]:
@@ -52,38 +46,16 @@ def rank_candidates(candidates: tuple[Candidate, ...]) -> tuple[Candidate, ...]:
     )
 
 
-def explain_choice(
-    mode: FlightMode,
-    chosen: Candidate,
-    runner_up: Candidate | None,
-) -> str:
-    """One line of reasoning: why this one, and what it beat."""
-    reason = f"Chosen for {OBJECTIVE_DESCRIPTION[mode]}."
+def explain_choice(chosen: Candidate, runner_up: Candidate | None) -> str:
+    """One line of reasoning: why this one, and what it beat.
+
+    The fuel difference against the runner-up belongs here and arrives with
+    the mission model. Until then the line names the alternative without
+    quantifying the gap, rather than quoting a number that is not yet real.
+    """
+    reason = "Chosen as the most efficient of the available combinations."
     if runner_up is None:
         return reason
 
-    runner_up_name = (
-        f"{runner_up.configuration.wing.name} + {runner_up.configuration.empennage.name}"
-    )
-    return f"{reason} Next best: {runner_up_name}, {_describe_shortfall(mode, chosen, runner_up)}."
-
-
-def _describe_shortfall(mode: FlightMode, chosen: Candidate, runner_up: Candidate) -> str:
-    """How much worse the runner-up is, in the units of the chosen mode."""
-    chosen_results = chosen.results
-    runner_up_results = runner_up.results
-
-    match mode:
-        case FlightMode.LOITER:
-            shortfall = chosen_results.endurance - runner_up_results.endurance
-            return f"{format_duration(shortfall)} shorter"
-        case FlightMode.RANGE:
-            shortfall = chosen_results.still_air_range - runner_up_results.still_air_range
-            return f"{shortfall / 1000.0:.1f} km shorter"
-        case FlightMode.SPEED:
-            shortfall = chosen_results.max_level_speed - runner_up_results.max_level_speed
-            return f"{shortfall:.1f} m/s slower"
-        case FlightMode.SHORT_FIELD:
-            excess = runner_up_results.stall_speed - chosen_results.stall_speed
-            return f"{excess:.1f} m/s faster stall"
-    raise ValueError(f"No shortfall description defined for mode {mode}")
+    alternative = f"{runner_up.configuration.wing.name} + {runner_up.configuration.empennage.name}"
+    return f"{reason} Next best: {alternative}."

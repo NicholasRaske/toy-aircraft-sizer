@@ -66,19 +66,19 @@ def test_loiter_prefers_the_efficient_wing(catalog, loiter_requirements):
     assert recommendation.configuration.wing.name == "Surveyor"
 
 
-def test_speed_prefers_the_fast_wing(catalog, loiter_requirements):
-    recommendation = recommend(replace(loiter_requirements, mode=FlightMode.SPEED), catalog)
+def test_every_mode_is_ranked_the_same_way(catalog, loiter_requirements):
+    """A mode selects the profile flown, not what counts as better.
 
-    assert recommendation.configuration.wing.name == "Dash"
+    All three are ranked on the fuel needed to complete the stated mission, so
+    with the mission held constant they cannot disagree about which
+    configuration is most efficient.
+    """
+    chosen = {
+        recommend(replace(loiter_requirements, mode=mode), catalog).configuration.wing.name
+        for mode in FlightMode
+    }
 
-
-def test_short_field_prefers_the_lowest_stall_speed(catalog, loiter_requirements):
-    recommendation = recommend(replace(loiter_requirements, mode=FlightMode.SHORT_FIELD), catalog)
-
-    lowest_stall = min(
-        candidate.results.stall_speed for candidate in recommendation.considered
-    )
-    assert recommendation.results.stall_speed == pytest.approx(lowest_stall)
+    assert len(chosen) == 1
 
 
 def test_rationale_names_the_runner_up(catalog, loiter_requirements):

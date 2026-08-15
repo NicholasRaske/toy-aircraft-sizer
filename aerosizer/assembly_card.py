@@ -119,15 +119,15 @@ def build_assembly_card(recommendation: Recommendation) -> AssemblyCard:
         ),
         CardEntry(
             "CG target",
-            f"{metres_to_millimetres(results.centre_of_gravity_station):.0f} mm",
+            f"{metres_to_millimetres(results.mass.centre_of_gravity_station):.0f} mm",
             "from nose",
         ),
     )
 
     prediction = (
-        format_duration(results.endurance),
-        f"{results.stall_speed:.1f} m/s stall",
-        f"SM {results.static_margin * 100.0:.0f}%",
+        f"{results.envelope.cruise_speed.value:.1f} m/s cruise",
+        f"{results.envelope.stall_speed:.1f} m/s stall",
+        f"SM {results.balance.static_margin * 100.0:.0f}%",
     )
 
     return AssemblyCard(

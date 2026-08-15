@@ -50,7 +50,7 @@ def recommend(requirements: Requirements, catalog: Catalog) -> Recommendation:
     return Recommendation(
         requirements=requirements,
         considered=ranked,
-        rationale=explain_choice(requirements.mode, chosen, runner_up),
+        rationale=explain_choice(chosen, runner_up),
     )
 
 
@@ -75,7 +75,7 @@ def _evaluate_every_combination(
             Candidate(
                 configuration=configuration,
                 results=results,
-                figure_of_merit=figure_of_merit(requirements.mode, results),
+                figure_of_merit=figure_of_merit(results),
             )
         )
     return tuple(candidates)

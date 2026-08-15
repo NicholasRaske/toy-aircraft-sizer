@@ -1,14 +1,19 @@
-"""The four objects the whole tool is built around.
+"""The objects the whole tool is built around.
 
 ``Requirements``     what the pilot asks for
 ``Configuration``    a fully determined aircraft, ready to evaluate
-``Results``          what that aircraft will do
+``Results``          what that aircraft is capable of
 ``Recommendation``   the configuration chosen for those requirements, and why
 
 The important distinction is between ``Requirements`` and ``Configuration``.
 A ``Configuration`` leaves nothing to be solved: the fuel is already decided,
 the tail extension is already decided. That is what lets ``analyze`` be a pure
 evaluation, with every iterative solve living in ``recommend``.
+
+The second distinction is between what an aircraft *is capable of* and what it
+*does on a given sortie*. ``Results`` is the former -- how slowly it can fly,
+how efficiently, where it balances. Mission outcomes such as fuel burned and
+time elapsed belong to a flight log, and arrive with the mission model.
 """
 
 from __future__ import annotations
@@ -23,12 +28,16 @@ STANDARD_TEMPERATURE = 288.15
 
 
 class FlightMode(Enum):
-    """What the pilot is optimising for. Chosen first; sets everything else."""
+    """The shape of the sortie.
+
+    A mode selects which mission profile is flown and which numbers the pilot
+    is asked for. It does not select an objective: every mode is ranked the
+    same way, on the fuel needed to complete the mission that was stated.
+    """
 
     LOITER = "loiter"
-    RANGE = "range"
-    SPEED = "speed"
-    SHORT_FIELD = "short_field"
+    ONE_WAY_RANGE = "one_way_range"
+    RETURN_RANGE = "return_range"
 
 
 class Fidelity(Enum):
@@ -77,8 +86,72 @@ class Configuration:
 
 
 @dataclass(frozen=True)
+class Limited:
+    """A value, together with whatever stopped it being better.
+
+    Several speeds on this aircraft are set by something other than the
+    textbook optimum. Minimum-power speed, for instance, falls below the stall
+    speed at typical masses, so loiter is stall-limited rather than
+    power-limited -- and reporting the unattainable optimum would mean
+    promising an endurance the aircraft cannot fly.
+
+    Carrying the reason lets the expert view explain itself, gives the
+    tie-break rule a real margin to sort on, and gives each new constraint we
+    discover somewhere to go other than another special case.
+
+    ``margin`` is expressed in the same units as ``value``.
+    """
+
+    value: float
+    limited_by: str
+    margin: float
+
+
+@dataclass(frozen=True)
+class MassProperties:
+    """Where the mass is, and therefore where the aircraft balances."""
+
+    all_up_mass: float
+    empty_mass: float
+    fuel_mass: float
+    payload_mass: float
+    centre_of_gravity_station: float
+
+
+@dataclass(frozen=True)
+class SpeedEnvelope:
+    """The speeds one configuration can fly, at one mass.
+
+    Not a fixed property of the aircraft: stall speed goes as the square root
+    of weight, so the envelope is narrowest at takeoff and widens as fuel
+    burns.
+
+    ``min_power_speed`` and ``min_drag_speed`` are the unclipped theoretical
+    optima, kept for the expert view. The speeds actually flown are the
+    ``Limited`` ones, which respect stall margin.
+    """
+
+    stall_speed: float
+    min_power_speed: float
+    min_drag_speed: float
+    loiter_speed: Limited
+    cruise_speed: Limited
+    max_level_speed: Limited
+
+
+@dataclass(frozen=True)
+class Balance:
+    """Longitudinal stability of the assembled aircraft."""
+
+    neutral_point_station: float
+    static_margin: float
+    horizontal_tail_volume: float
+    vertical_tail_volume: float
+
+
+@dataclass(frozen=True)
 class Results:
-    """What a configuration will do.
+    """What a configuration is capable of.
 
     Every field is always populated. There is deliberately no ``Optional``
     here meaning "not computed yet" -- a half-filled result breeds None checks
@@ -87,22 +160,10 @@ class Results:
     """
 
     fidelity: Fidelity
-
-    all_up_mass: float
-    centre_of_gravity_station: float
-
-    stall_speed: float
-    cruise_speed: float
-    max_level_speed: float
-
+    mass: MassProperties
+    envelope: SpeedEnvelope
+    balance: Balance
     lift_to_drag_max: float
-    endurance: float
-    still_air_range: float
-    rate_of_climb: float
-
-    static_margin: float
-    horizontal_tail_volume: float
-    vertical_tail_volume: float
 
 
 @dataclass(frozen=True)
