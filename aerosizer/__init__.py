@@ -30,13 +30,9 @@ from aerosizer.parts import Catalog, Empennage, Engine, Fuselage, TailBoom, Wing
 from aerosizer.recommend import recommend
 
 __all__ = [
-    "analyze",
-    "recommend",
-    "render_assembly_card",
-    "load_catalog",
-    "CatalogError",
     "Candidate",
     "Catalog",
+    "CatalogError",
     "Configuration",
     "Empennage",
     "Engine",
@@ -48,4 +44,8 @@ __all__ = [
     "Results",
     "TailBoom",
     "Wing",
+    "analyze",
+    "load_catalog",
+    "recommend",
+    "render_assembly_card",
 ]

@@ -16,6 +16,8 @@ from aerosizer.assembly_card import (
     BANNERS,
     BannerSeverity,
     build_assembly_card,
+)
+from aerosizer.assembly_card import (
     render_assembly_card as render_from_module,
 )
 

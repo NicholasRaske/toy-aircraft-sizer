@@ -20,8 +20,3 @@ PETROL_DENSITY = 720.0
 def volume_for_mass(fuel_mass: float) -> float:
     """Cubic metres of petrol weighing ``fuel_mass`` kilograms."""
     return fuel_mass / PETROL_DENSITY
-
-
-def mass_for_volume(fuel_volume: float) -> float:
-    """Kilograms of petrol occupying ``fuel_volume`` cubic metres."""
-    return fuel_volume * PETROL_DENSITY

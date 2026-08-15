@@ -66,7 +66,6 @@ VALUE_FONT = ("Helvetica", 11, "bold")
 # Stepper glyphs are ASCII and oversized: the panel font has no typographic
 # minus, and Tk draws a missing glyph as a box containing its hex codepoint.
 STEPPER_FONT = ("Helvetica", 13, "bold")
-BUTTON_FONT = ("Helvetica", 8, "bold")
 PREDICTION_FONT = ("Helvetica", 10, "bold")
 RATIONALE_FONT = ("Helvetica", 7)
 BANNER_FONT = ("Helvetica", 8, "bold")
