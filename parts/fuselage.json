@@ -4,6 +4,7 @@
     "name": "Standard fuselage",
     "structure_mass_kg": 8.5,
     "structure_centre_of_mass_station_m": 0.75,
+    "equivalent_flat_plate_area_m2": 0.028,
     "payload_station_m": 0.55,
     "fuel_tank_station_m": 0.7,
     "max_fuel_mass_kg": 3.0,

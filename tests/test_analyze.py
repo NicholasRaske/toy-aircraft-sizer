@@ -58,14 +58,22 @@ def test_higher_aspect_ratio_improves_lift_to_drag(baseline_configuration):
     assert analyze(slender).lift_to_drag_max > analyze(baseline_configuration).lift_to_drag_max
 
 
-def test_lower_aspect_ratio_raises_top_speed(baseline_configuration):
+def test_lower_aspect_ratio_lowers_top_speed(baseline_configuration):
+    """A stubbier wing of the same area is slower flat out, not faster.
+
+    The placeholder model asserted the opposite and this test was written to
+    match it. Shortening the span at constant area raises the induced drag
+    factor and leaves parasite drag alone, so the aircraft is worse
+    everywhere. The intuition that low aspect ratio means fast comes from
+    fitting a *smaller* wing, which is a different change entirely.
+    """
     stubby = _with_wing_change(
         baseline_configuration,
         span=baseline_configuration.wing.span * 0.8,
     )
 
     stubby_top_speed = analyze(stubby).envelope.max_level_speed.value
-    assert stubby_top_speed > analyze(baseline_configuration).envelope.max_level_speed.value
+    assert stubby_top_speed < analyze(baseline_configuration).envelope.max_level_speed.value
 
 
 def test_analysis_is_deterministic(baseline_configuration):

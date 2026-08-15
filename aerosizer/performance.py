@@ -1,22 +1,47 @@
 """Performance: the speeds a configuration can actually fly.
 
-BUILD STATE -- phase 2, step 2
-==============================
-Only the stall speed is real. It is the foundation the rest of the envelope
-rests on, because several speeds turn out to be limited by stall margin rather
-than by the aerodynamic optimum they are named after.
+Every speed here is found by searching the power-required curve rather than by
+evaluating a closed-form equation. The closed forms exist, and are used as test
+oracles, but they assume a parabolic polar and a constant propeller efficiency.
+Both assumptions die when tabulated polars arrive. Searching a computed curve
+survives that change without altering a single call site.
 
-The power-required curve, and every speed read off it, arrives at step 3.
+Searching also removes special cases. Two of the speeds an aircraft would like
+to fly can fall below the speed at which its wing stops working -- clipping
+them is then one operation applied twice, rather than a branch each.
 """
 
 from __future__ import annotations
 
-from aerosizer.atmosphere import Atmosphere, airspeed_for_lift_coefficient, weight
-from aerosizer.parts import Wing
+import math
+from collections.abc import Callable
+
+from aerosizer.aero import DragPolar, drag_polar
+from aerosizer.atmosphere import (
+    SEA_LEVEL_ISA,
+    Atmosphere,
+    airspeed_for_lift_coefficient,
+    dynamic_pressure,
+    weight,
+)
+from aerosizer.config import Configuration, Limited, SpeedEnvelope
+from aerosizer.parts import Engine, Wing
 
 # The margin over stall at which this class of aircraft is flown. Any speed
 # the aerodynamics would prefer below this is clipped up to it.
 STALL_MARGIN_FACTOR = 1.2
+
+SEARCH_LOWEST_SPEED = 1.0
+SEARCH_HIGHEST_SPEED = 200.0
+SEARCH_TOLERANCE = 1e-5
+
+LIMITED_BY_STALL_MARGIN = "stall margin"
+LIMITED_BY_MINIMUM_POWER = "minimum power"
+LIMITED_BY_MINIMUM_DRAG = "minimum drag"
+LIMITED_BY_ENGINE_POWER = "engine power"
+LIMITED_BY_INSUFFICIENT_POWER = "insufficient power"
+
+_GOLDEN_SECTION = (math.sqrt(5.0) - 1.0) / 2.0
 
 
 def stall_speed(mass: float, wing: Wing, atmosphere: Atmosphere) -> float:
@@ -36,3 +61,154 @@ def stall_speed(mass: float, wing: Wing, atmosphere: Atmosphere) -> float:
 def minimum_safe_speed(stall: float) -> float:
     """The slowest speed we will ever instruct, whatever the aerodynamics say."""
     return STALL_MARGIN_FACTOR * stall
+
+
+def power_required(
+    polar: DragPolar,
+    mass: float,
+    atmosphere: Atmosphere,
+    airspeed: float,
+) -> float:
+    """Power needed to hold level flight at a speed.
+
+    Written as lift coefficient, then drag coefficient, then drag times speed,
+    rather than as the expanded algebraic form. Slower, and the only version
+    that still works once the polar stops being parabolic.
+    """
+    pressure = dynamic_pressure(atmosphere, airspeed)
+    lift_coefficient = weight(mass) / (pressure * polar.reference_area)
+    drag = pressure * polar.reference_area * polar.drag_coefficient(lift_coefficient)
+    return drag * airspeed
+
+
+def power_available(engine: Engine, atmosphere: Atmosphere) -> float:
+    """Thrust power at the propeller, falling with air density."""
+    density_ratio = atmosphere.density / SEA_LEVEL_ISA.density
+    return engine.max_shaft_power * engine.propeller_efficiency * density_ratio
+
+
+def speed_envelope(
+    configuration: Configuration,
+    mass: float,
+    atmosphere: Atmosphere,
+) -> SpeedEnvelope:
+    """Every speed of interest for one configuration at one mass."""
+    polar = drag_polar(configuration)
+    stall = stall_speed(mass, configuration.wing, atmosphere)
+    slowest_instructable = minimum_safe_speed(stall)
+
+    def power_at(airspeed: float) -> float:
+        return power_required(polar, mass, atmosphere, airspeed)
+
+    def drag_at(airspeed: float) -> float:
+        return power_at(airspeed) / airspeed
+
+    # Minimum power is where the aircraft stays airborne most cheaply per
+    # second; minimum drag is where it does so most cheaply per metre.
+    min_power_speed = _minimise(power_at)
+    min_drag_speed = _minimise(drag_at)
+
+    return SpeedEnvelope(
+        stall_speed=stall,
+        min_power_speed=min_power_speed,
+        min_drag_speed=min_drag_speed,
+        loiter_speed=_clipped_to_stall_margin(
+            min_power_speed, slowest_instructable, LIMITED_BY_MINIMUM_POWER
+        ),
+        cruise_speed=_clipped_to_stall_margin(
+            min_drag_speed, slowest_instructable, LIMITED_BY_MINIMUM_DRAG
+        ),
+        max_level_speed=_maximum_level_speed(
+            power_at,
+            min_power_speed,
+            power_available(configuration.engine, atmosphere),
+            slowest_instructable,
+        ),
+    )
+
+
+def _clipped_to_stall_margin(
+    preferred: float,
+    slowest_instructable: float,
+    reason_when_unclipped: str,
+) -> Limited:
+    """Never instruct a speed the aerodynamics prefer but the wing cannot hold.
+
+    ``margin`` is how far the speed sits above the slowest we would instruct.
+    A clipped speed has none, which is exactly what makes it worth reporting.
+    """
+    if preferred < slowest_instructable:
+        return Limited(
+            value=slowest_instructable,
+            limited_by=LIMITED_BY_STALL_MARGIN,
+            margin=0.0,
+        )
+    return Limited(
+        value=preferred,
+        limited_by=reason_when_unclipped,
+        margin=preferred - slowest_instructable,
+    )
+
+
+def _maximum_level_speed(
+    power_at: Callable[[float], float],
+    min_power_speed: float,
+    available: float,
+    slowest_instructable: float,
+) -> Limited:
+    """Where power required meets power available."""
+    if power_at(min_power_speed) >= available:
+        # Level flight is impossible at any speed. Reported rather than
+        # refused; excluding such a configuration is the gate's job.
+        return Limited(
+            value=slowest_instructable,
+            limited_by=LIMITED_BY_INSUFFICIENT_POWER,
+            margin=0.0,
+        )
+
+    top_speed = _find_crossing(
+        lambda airspeed: power_at(airspeed) - available,
+        lower=min_power_speed,
+        upper=SEARCH_HIGHEST_SPEED,
+    )
+    return Limited(
+        value=top_speed,
+        limited_by=LIMITED_BY_ENGINE_POWER,
+        margin=top_speed - slowest_instructable,
+    )
+
+
+def _minimise(
+    function: Callable[[float], float],
+    lower: float = SEARCH_LOWEST_SPEED,
+    upper: float = SEARCH_HIGHEST_SPEED,
+) -> float:
+    """Golden-section search for the minimum of a unimodal function.
+
+    Power required and drag are both unimodal in airspeed -- induced drag
+    dominates below the minimum, parasite drag above it -- so this converges
+    without a derivative or a starting guess.
+    """
+    while upper - lower > SEARCH_TOLERANCE:
+        span = (upper - lower) * _GOLDEN_SECTION
+        left, right = upper - span, lower + span
+        if function(left) < function(right):
+            upper = right
+        else:
+            lower = left
+    return 0.5 * (lower + upper)
+
+
+def _find_crossing(
+    function: Callable[[float], float],
+    lower: float,
+    upper: float,
+) -> float:
+    """Bisect for the zero of a function that rises through it."""
+    while upper - lower > SEARCH_TOLERANCE:
+        middle = 0.5 * (lower + upper)
+        if function(middle) < 0.0:
+            lower = middle
+        else:
+            upper = middle
+    return 0.5 * (lower + upper)

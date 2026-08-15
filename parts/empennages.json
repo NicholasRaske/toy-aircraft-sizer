@@ -5,6 +5,7 @@
       "name": "Standard",
       "horizontal_tail_area_m2": 0.32,
       "vertical_tail_area_m2": 0.16,
+      "equivalent_flat_plate_area_m2": 0.008,
       "mass_kg": 1.1,
       "nominal_aerodynamic_centre_station_m": 1.85
     },
@@ -12,6 +13,7 @@
       "name": "Compact",
       "horizontal_tail_area_m2": 0.22,
       "vertical_tail_area_m2": 0.11,
+      "equivalent_flat_plate_area_m2": 0.006,
       "mass_kg": 0.8,
       "nominal_aerodynamic_centre_station_m": 1.55
     }
