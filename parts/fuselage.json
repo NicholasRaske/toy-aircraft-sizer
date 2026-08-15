@@ -8,6 +8,7 @@
     "fuel_tank_station_m": 0.7,
     "max_fuel_mass_kg": 3.0,
     "tail_boom": {
+      "root_station_m": 1.35,
       "max_extension_m": 0.4,
       "detent_spacing_m": 0.01,
       "mass_per_metre_kg_per_m": 0.35

@@ -69,8 +69,13 @@ class TailBoom:
     ``detent_spacing`` is the granularity a pilot can actually set in the
     field, and therefore the granularity every tail-extension instruction must
     be quantised to.
+
+    ``root_station`` is where the boom emerges from the fuselage. Extending it
+    adds mass centred halfway along the extension, which is why the station
+    matters and not just the mass.
     """
 
+    root_station: float
     max_extension: float
     detent_spacing: float
     mass_per_metre: float

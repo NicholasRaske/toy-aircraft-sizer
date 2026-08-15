@@ -21,10 +21,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from aerosizer.atmosphere import SEA_LEVEL_ELEVATION, SEA_LEVEL_TEMPERATURE
 from aerosizer.parts import Empennage, Engine, Fuselage, Wing
-
-SEA_LEVEL_ELEVATION = 0.0
-STANDARD_TEMPERATURE = 288.15
 
 
 class FlightMode(Enum):
@@ -61,7 +59,7 @@ class Requirements:
     duration: float
     payload_mass: float
     field_elevation: float = SEA_LEVEL_ELEVATION
-    field_temperature: float = STANDARD_TEMPERATURE
+    field_temperature: float = SEA_LEVEL_TEMPERATURE
 
 
 @dataclass(frozen=True)

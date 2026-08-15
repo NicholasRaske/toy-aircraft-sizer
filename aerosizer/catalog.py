@@ -109,6 +109,7 @@ def _parse_fuselage(document: dict[str, Any]) -> Fuselage:
     boom_entry = _entry_object(entry, "tail_boom", source)
 
     tail_boom = TailBoom(
+        root_station=_positive(boom_entry, "root_station_m", f"{source} tail boom"),
         max_extension=_positive(boom_entry, "max_extension_m", f"{source} tail boom"),
         detent_spacing=_positive(boom_entry, "detent_spacing_m", f"{source} tail boom"),
         mass_per_metre=_positive(boom_entry, "mass_per_metre_kg_per_m", f"{source} tail boom"),
