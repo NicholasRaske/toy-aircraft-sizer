@@ -14,6 +14,7 @@ from __future__ import annotations
 
 SECONDS_PER_MINUTE = 60.0
 SECONDS_PER_HOUR = 3600.0
+GRAMS_PER_KILOGRAM = 1000.0
 METRES_PER_KILOMETRE = 1000.0
 MILLIMETRES_PER_METRE = 1000.0
 LITRES_PER_CUBIC_METRE = 1000.0
@@ -45,6 +46,17 @@ def format_distance(metres: float) -> str:
 
 def format_mass(kilograms: float) -> str:
     return f"{kilograms:.1f} kg"
+
+
+def format_fuel_mass(kilograms: float) -> str:
+    """Fuel loads on this aircraft are small enough that grams read better."""
+    if kilograms < 1.0:
+        return f"{kilograms * GRAMS_PER_KILOGRAM:.0f} g"
+    return f"{kilograms:.2f} kg"
+
+
+def format_speed(metres_per_second: float) -> str:
+    return f"{metres_per_second:.1f} m/s"
 
 
 def format_duration(seconds: float) -> str:

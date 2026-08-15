@@ -33,7 +33,7 @@ from aerosizer.config import (
     Results,
 )
 from aerosizer.mass import mass_properties
-from aerosizer.performance import speed_envelope
+from aerosizer.performance import best_climb, speed_envelope
 
 PLACEHOLDER_NEUTRAL_POINT_STATION = 0.70
 PLACEHOLDER_STATIC_MARGIN = 0.12
@@ -49,6 +49,7 @@ def analyze(configuration: Configuration, atmosphere: Atmosphere = SEA_LEVEL_ISA
         fidelity=Fidelity.PLACEHOLDER,
         mass=mass,
         envelope=speed_envelope(configuration, mass.all_up_mass, atmosphere),
+        climb=best_climb(configuration, mass.all_up_mass, atmosphere),
         balance=Balance(
             neutral_point_station=PLACEHOLDER_NEUTRAL_POINT_STATION,
             static_margin=PLACEHOLDER_STATIC_MARGIN,

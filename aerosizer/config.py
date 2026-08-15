@@ -134,6 +134,14 @@ class SpeedEnvelope:
 
 
 @dataclass(frozen=True)
+class ClimbPerformance:
+    """How hard the aircraft can climb, and how fast it flies while doing it."""
+
+    best_rate: float
+    speed_for_best_rate: Limited
+
+
+@dataclass(frozen=True)
 class Balance:
     """Longitudinal stability of the assembled aircraft."""
 
@@ -156,6 +164,7 @@ class Results:
     fidelity: Fidelity
     mass: MassProperties
     envelope: SpeedEnvelope
+    climb: ClimbPerformance
     balance: Balance
     lift_to_drag_max: float
 

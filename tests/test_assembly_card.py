@@ -30,7 +30,19 @@ def card(catalog, loiter_requirements):
 def test_card_is_ordered_by_assembly_sequence(card):
     labels = [entry.label for entry in card.assembly]
 
-    assert labels == ["Wings", "Empennage", "Tail extension", "Fuel fill", "CG target"]
+    assert labels == ["Wings", "Empennage", "Tail extension", "Mission fuel", "CG target"]
+
+
+def test_fuel_is_labelled_as_mission_fuel_not_a_fill_instruction(card):
+    """There is no reserve in the figure, and the wording must not imply one.
+
+    A pilot who reads mission fuel as a fill instruction has no margin at all,
+    because margin is deliberately theirs to add rather than ours to assume.
+    """
+    labels = [entry.label for entry in card.assembly]
+
+    assert "Mission fuel" in labels
+    assert "Fuel fill" not in labels
 
 
 def test_mission_is_described_in_pilot_units(card):
@@ -43,11 +55,47 @@ def test_mission_is_described_in_pilot_units(card):
 
 
 def test_fuel_is_instructed_as_a_volume(card):
-    fuel = next(entry for entry in card.assembly if entry.label == "Fuel fill")
+    fuel = next(entry for entry in card.assembly if entry.label == "Mission fuel")
 
     # The pilot fills a tank, so volume leads and mass is the supporting detail.
     assert fuel.value.endswith(" L")
     assert fuel.detail is not None and fuel.detail.endswith(" kg")
+
+
+def test_every_speed_is_reported_with_what_limits_it(card):
+    """Several speeds are set by stall margin, not by their namesake optimum.
+
+    Showing the number without the reason would leave a pilot unable to tell
+    an aerodynamic best-endurance speed from a stall-limited compromise.
+    """
+    labels = [entry.label for entry in card.speeds]
+    assert labels == ["Stall", "Best endurance", "Best range", "Max level", "Best climb"]
+
+    for entry in card.speeds:
+        assert entry.detail, f"{entry.label} should say what limits it"
+
+
+def test_speeds_are_ordered_from_slowest_to_fastest(card):
+    def to_number(entry):
+        return float(entry.value.split()[0])
+
+    airspeeds = [to_number(entry) for entry in card.speeds[:4]]
+    assert airspeeds == sorted(airspeeds)
+
+
+def test_the_climb_row_reports_a_rate_not_a_speed(card):
+    climb = next(entry for entry in card.speeds if entry.label == "Best climb")
+
+    assert climb.value.endswith(" m/s up")
+    assert climb.detail is not None and climb.detail.startswith("at ")
+
+
+def test_the_prediction_summarises_the_sortie(card):
+    duration, volume, mass = card.prediction
+
+    assert "min" in duration
+    assert volume.endswith(" L")
+    assert mass.endswith(" kg")
 
 
 def test_lengths_are_shown_in_millimetres(card):
@@ -74,7 +122,7 @@ def test_text_rendering_contains_every_card_entry(catalog, loiter_requirements):
     card = build_assembly_card(recommendation)
     text = render_assembly_card(recommendation)
 
-    for entry in card.assembly:
+    for entry in card.assembly + card.speeds:
         assert entry.label in text
         assert entry.value in text
     assert card.banner.headline in text

@@ -15,7 +15,7 @@ import pytest
 
 from aerosizer import FlightMode, input_fields
 from aerosizer.mission import PAYLOAD_FIELD
-from kiosk import FLIGHT_MODES, KioskScreen
+from kiosk import FLIGHT_MODES, PAGES, KioskScreen
 
 
 @pytest.fixture
@@ -180,3 +180,30 @@ def test_all_inputs_share_one_control_shape(screen):
     widths = {stepper._value_label.winfo_width() for stepper in steppers}
 
     assert len(widths) == 1, "every input should align as one column"
+
+
+@pytest.mark.parametrize("page", PAGES)
+def test_no_card_text_is_cut_off_by_the_panel_edge(screen, page):
+    """Regression: speed limit reasons ran off the right of the screen.
+
+    The detail column was a fixed eight characters wide, which fitted
+    "from nose" and truncated "at takeoff mass". Measured against the font
+    rather than the widget, because a widget given an explicit width reports
+    that width whether or not its text fits inside it.
+    """
+    from tkinter import font as tk_font
+
+    screen._select_page(page)
+    screen.update()
+
+    frame = screen._card_frame
+    for label in frame.winfo_children():
+        text = label.cget("text")
+        if not text:
+            continue
+
+        natural_width = tk_font.Font(font=label.cget("font")).measure(text)
+        assert natural_width <= label.winfo_width(), f"{text!r} is clipped by its column"
+        assert label.winfo_x() + natural_width <= frame.winfo_width(), (
+            f"{text!r} runs past the right edge of the panel"
+        )

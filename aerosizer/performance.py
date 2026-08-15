@@ -24,7 +24,7 @@ from aerosizer.atmosphere import (
     dynamic_pressure,
     weight,
 )
-from aerosizer.config import Configuration, Limited, SpeedEnvelope
+from aerosizer.config import ClimbPerformance, Configuration, Limited, SpeedEnvelope
 from aerosizer.parts import Engine, Wing
 
 # The margin over stall at which this class of aircraft is flown. Any speed
@@ -38,6 +38,7 @@ SEARCH_TOLERANCE = 1e-5
 LIMITED_BY_STALL_MARGIN = "stall margin"
 LIMITED_BY_MINIMUM_POWER = "minimum power"
 LIMITED_BY_MINIMUM_DRAG = "minimum drag"
+LIMITED_BY_EXCESS_POWER = "excess power"
 LIMITED_BY_ENGINE_POWER = "engine power"
 LIMITED_BY_INSUFFICIENT_POWER = "insufficient power"
 
@@ -162,6 +163,34 @@ def cruise_airspeed(
     slowest = minimum_safe_speed(stall_speed(mass, configuration.wing, atmosphere))
     return _clipped_to_stall_margin(
         minimum_drag_speed(polar, mass, atmosphere), slowest, LIMITED_BY_MINIMUM_DRAG
+    )
+
+
+def best_climb(
+    configuration: Configuration,
+    mass: float,
+    atmosphere: Atmosphere,
+) -> ClimbPerformance:
+    """Best rate of climb, from whatever power is left over after level flight.
+
+    Note that the speed for best climb comes out identical to the minimum
+    power speed. That is not a coincidence or a bug: with propeller efficiency
+    modelled as constant, power available does not vary with airspeed, so the
+    greatest excess is wherever the requirement is least. The two speeds
+    separate once efficiency becomes a function of airspeed.
+    """
+    polar = drag_polar(configuration)
+    available = power_available(configuration.engine, atmosphere)
+    slowest = minimum_safe_speed(stall_speed(mass, configuration.wing, atmosphere))
+
+    speed = _clipped_to_stall_margin(
+        minimum_power_speed(polar, mass, atmosphere), slowest, LIMITED_BY_EXCESS_POWER
+    )
+    excess = available - power_required(polar, mass, atmosphere, speed.value)
+
+    return ClimbPerformance(
+        best_rate=excess / weight(mass),
+        speed_for_best_rate=speed,
     )
 
 

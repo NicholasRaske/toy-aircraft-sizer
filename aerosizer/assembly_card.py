@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from aerosizer.config import Fidelity, Recommendation, Requirements
+from aerosizer.config import Fidelity, Recommendation, Requirements, Results
 from aerosizer.fuel import volume_for_mass
 from aerosizer.mission import InputField, Quantity, mission_fields
 from aerosizer.units import (
@@ -28,6 +28,7 @@ from aerosizer.units import (
     format_distance,
     format_duration,
     format_mass,
+    format_speed,
     metres_to_millimetres,
 )
 
@@ -81,10 +82,16 @@ class CardBanner:
 
 @dataclass(frozen=True)
 class AssemblyCard:
-    """Everything an interface needs to show, already in display units."""
+    """Everything an interface needs to show, already in display units.
+
+    Two sections, because they answer different questions. ``assembly`` is
+    what to build; ``speeds`` is what the result will do once it is flying.
+    Both are the same shape, so one renderer draws either.
+    """
 
     mission: tuple[str, ...]
     assembly: tuple[CardEntry, ...]
+    speeds: tuple[CardEntry, ...]
     prediction: tuple[str, ...]
     rationale: str
     banner: CardBanner
@@ -122,6 +129,7 @@ def build_assembly_card(recommendation: Recommendation) -> AssemblyCard:
     """Turn a recommendation into display-ready card data."""
     configuration = recommendation.configuration
     results = recommendation.results
+    flight = recommendation.chosen.flight
     fuel_volume = volume_for_mass(configuration.fuel_mass)
 
     assembly = (
@@ -131,10 +139,13 @@ def build_assembly_card(recommendation: Recommendation) -> AssemblyCard:
             "Tail extension",
             f"{metres_to_millimetres(configuration.tail_extension):.0f} mm",
         ),
+        # Deliberately not "fuel fill". There is no reserve in this figure;
+        # it is what the mission burns and nothing more. A pilot who reads it
+        # as a fill instruction runs a tank dry.
         CardEntry(
-            "Fuel fill",
-            f"{cubic_metres_to_litres(fuel_volume):.1f} L",
-            f"{configuration.fuel_mass:.1f} kg",
+            "Mission fuel",
+            f"{cubic_metres_to_litres(fuel_volume):.2f} L",
+            f"{configuration.fuel_mass:.2f} kg",
         ),
         CardEntry(
             "CG target",
@@ -144,17 +155,53 @@ def build_assembly_card(recommendation: Recommendation) -> AssemblyCard:
     )
 
     prediction = (
-        f"{results.envelope.cruise_speed.value:.1f} m/s cruise",
-        f"{results.envelope.stall_speed:.1f} m/s stall",
-        f"SM {results.balance.static_margin * 100.0:.0f}%",
+        format_duration(flight.total_duration),
+        f"{cubic_metres_to_litres(fuel_volume):.2f} L",
+        f"{results.mass.all_up_mass:.1f} kg",
     )
 
     return AssemblyCard(
         mission=_describe_mission(recommendation.requirements),
         assembly=assembly,
+        speeds=_describe_speeds(results),
         prediction=prediction,
         rationale=recommendation.rationale,
         banner=BANNERS[results.fidelity],
+    )
+
+
+def _describe_speeds(results: Results) -> tuple[CardEntry, ...]:
+    """The speeds worth flying, each with whatever is limiting it.
+
+    The limit is shown rather than implied, because several of these are set
+    by stall margin rather than by the aerodynamic optimum they are named
+    after, and a pilot reading the number deserves to know which.
+    """
+    envelope = results.envelope
+    climb = results.climb
+
+    return (
+        CardEntry("Stall", format_speed(envelope.stall_speed), "at takeoff mass"),
+        CardEntry(
+            "Best endurance",
+            format_speed(envelope.loiter_speed.value),
+            envelope.loiter_speed.limited_by,
+        ),
+        CardEntry(
+            "Best range",
+            format_speed(envelope.cruise_speed.value),
+            envelope.cruise_speed.limited_by,
+        ),
+        CardEntry(
+            "Max level",
+            format_speed(envelope.max_level_speed.value),
+            envelope.max_level_speed.limited_by,
+        ),
+        CardEntry(
+            "Best climb",
+            f"{climb.best_rate:.1f} m/s up",
+            f"at {climb.speed_for_best_rate.value:.0f} m/s",
+        ),
     )
 
 
@@ -186,7 +233,9 @@ def render_assembly_card(recommendation: Recommendation) -> str:
     lines = [rule, "  ASSEMBLY CARD", f"  {' · '.join(card.mission)}", rule]
     lines.extend(_render_entry(entry) for entry in card.assembly)
     lines.append("-" * CARD_WIDTH)
-    lines.append(_render_line("Predicted", " · ".join(card.prediction)))
+    lines.extend(_render_entry(entry) for entry in card.speeds)
+    lines.append("-" * CARD_WIDTH)
+    lines.append(_render_line("Mission", " · ".join(card.prediction)))
     lines.append("")
     lines.append(f"  {card.rationale}")
     lines.append(rule)

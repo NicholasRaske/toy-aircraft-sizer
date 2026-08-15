@@ -58,6 +58,13 @@ FLIGHT_MODES = tuple(FlightMode)
 INPUT_ROW_HEIGHT = 25
 MAXIMUM_INPUT_FIELDS = max(len(input_fields(mode)) for mode in FLIGHT_MODES)
 
+# Two pages, because five assembly instructions and five speeds will not both
+# fit on a 3.5 inch panel. Tabs rather than another stepper: with a handful of
+# destinations, seeing them all beats cycling through them blind.
+ASSEMBLY_PAGE = "ASSEMBLY"
+SPEEDS_PAGE = "SPEEDS"
+PAGES = (ASSEMBLY_PAGE, SPEEDS_PAGE)
+
 BACKGROUND = "#0d1117"
 PANEL = "#161b22"
 CONTROL = "#21262d"
@@ -78,6 +85,7 @@ VALUE_FONT = ("Helvetica", 11, "bold")
 # Stepper glyphs are ASCII and oversized: the panel font has no typographic
 # minus, and Tk draws a missing glyph as a box containing its hex codepoint.
 STEPPER_FONT = ("Helvetica", 13, "bold")
+TAB_FONT = ("Helvetica", 8, "bold")
 PREDICTION_FONT = ("Helvetica", 10, "bold")
 RATIONALE_FONT = ("Helvetica", 7)
 BANNER_FONT = ("Helvetica", 8, "bold")
@@ -175,6 +183,7 @@ class KioskScreen(tk.Tk):
         # Requirements are rebuilt from them on every redraw.
         self._mode = FlightMode.LOITER
         self._values = default_values(self._mode)
+        self._page = ASSEMBLY_PAGE
 
         self.title("Aircraft Configuration Advisor")
         self.configure(background=BACKGROUND)
@@ -221,7 +230,25 @@ class KioskScreen(tk.Tk):
         self._refresh()
 
     def _build_card_area(self) -> None:
-        tk.Frame(self, background=RULE, height=1).pack(fill=tk.X, padx=6, pady=(4, 0))
+        tabs = tk.Frame(self, background=BACKGROUND)
+        tabs.pack(fill=tk.X, padx=6, pady=(3, 2))
+
+        self._tab_buttons: dict[str, tk.Button] = {}
+        for column, page in enumerate(PAGES):
+            button = tk.Button(
+                tabs,
+                text=page,
+                font=TAB_FONT,
+                relief=tk.FLAT,
+                borderwidth=0,
+                highlightthickness=0,
+                activebackground=ACCENT,
+                activeforeground=TEXT,
+                command=lambda chosen=page: self._select_page(chosen),
+            )
+            button.grid(row=0, column=column, sticky="ew", padx=1)
+            tabs.columnconfigure(column, weight=1)
+            self._tab_buttons[page] = button
 
         self._card_frame = tk.Frame(self, background=BACKGROUND)
         self._card_frame.pack(fill=tk.BOTH, expand=True, padx=6, pady=2)
@@ -278,6 +305,10 @@ class KioskScreen(tk.Tk):
         self._values[field.key] = min(max(stepped, field.minimum), field.maximum)
         self._refresh()
 
+    def _select_page(self, page: str) -> None:
+        self._page = page
+        self._refresh()
+
     # --------------------------------------------------------------- redraw
 
     def _requirements(self) -> Requirements:
@@ -302,10 +333,24 @@ class KioskScreen(tk.Tk):
         self._render_card(build_assembly_card(recommend(self._requirements(), self._catalog)))
 
     def _render_card(self, card: AssemblyCard) -> None:
+        for page, button in self._tab_buttons.items():
+            showing = page == self._page
+            button.configure(
+                background=ACCENT if showing else PANEL,
+                foreground=TEXT if showing else MUTED,
+            )
+
+        entries = card.assembly if self._page == ASSEMBLY_PAGE else card.speeds
+
         for existing in self._card_frame.winfo_children():
             existing.destroy()
 
-        for row, entry in enumerate(card.assembly):
+        # One width for every detail on the page, taken from the longest of
+        # them. Fixing it keeps the values aligned in a column; taking it from
+        # the content stops a long reason being cut off at the panel edge.
+        detail_width = max((len(entry.detail or "") for entry in entries), default=0)
+
+        for row, entry in enumerate(entries):
             tk.Label(
                 self._card_frame,
                 text=entry.label.upper(),
@@ -330,10 +375,9 @@ class KioskScreen(tk.Tk):
                 font=LABEL_FONT,
                 foreground=MUTED,
                 background=BACKGROUND,
-                width=8,
+                width=detail_width,
                 anchor="w",
             ).grid(row=row, column=2, sticky="w", padx=(4, 0))
-
         self._card_frame.columnconfigure(1, weight=1)
 
         self._prediction_label.configure(text="   ".join(card.prediction))

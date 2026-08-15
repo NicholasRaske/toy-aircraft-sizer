@@ -19,7 +19,7 @@ until then.
 from __future__ import annotations
 
 from aerosizer.config import Candidate, FlightLog
-from aerosizer.units import format_mass
+from aerosizer.units import format_fuel_mass
 
 
 def figure_of_merit(flight: FlightLog) -> float:
@@ -53,4 +53,4 @@ def explain_choice(chosen: Candidate, runner_up: Candidate | None) -> str:
 
     alternative = f"{runner_up.configuration.wing.name} + {runner_up.configuration.empennage.name}"
     extra = runner_up.flight.total_fuel - chosen.flight.total_fuel
-    return f"{reason} Next best: {alternative}, {format_mass(extra)} more."
+    return f"{reason} Next best: {alternative}, {format_fuel_mass(extra)} more."
