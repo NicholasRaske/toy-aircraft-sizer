@@ -67,7 +67,7 @@ ASSEMBLY_PAGE = "ASSEMBLY"
 SPEEDS_PAGE = "SPEEDS"
 PAGES = (ASSEMBLY_PAGE, SPEEDS_PAGE)
 
-BACKGROUND = "#0d1117"
+BACKGROUND = "#272c35"
 PANEL = "#161b22"
 CONTROL = "#21262d"
 RULE = "#30363d"
@@ -83,12 +83,12 @@ SEVERITY_COLOUR = {
 }
 
 LABEL_FONT = ("Helvetica", 8)
-VALUE_FONT = ("Helvetica", 11, "bold")
+VALUE_FONT = ("Helvetica", 8, "bold")
 # Stepper glyphs are ASCII and oversized: the panel font has no typographic
 # minus, and Tk draws a missing glyph as a box containing its hex codepoint.
-STEPPER_FONT = ("Helvetica", 13, "bold")
+STEPPER_FONT = ("Helvetica", 8, "bold")
 TAB_FONT = ("Helvetica", 8, "bold")
-PREDICTION_FONT = ("Helvetica", 10, "bold")
+PREDICTION_FONT = ("Helvetica", 8, "bold")
 RATIONALE_FONT = ("Helvetica", 7)
 BANNER_FONT = ("Helvetica", 8, "bold")
 
@@ -106,7 +106,7 @@ class Stepper:
     no effect is indistinguishable from a broken one.
     """
 
-    VALUE_WIDTH = 13
+    VALUE_WIDTH = 15
 
     def __init__(
         self,
