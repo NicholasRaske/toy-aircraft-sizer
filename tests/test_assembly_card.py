@@ -104,9 +104,9 @@ def test_lengths_are_shown_in_millimetres(card):
         assert entry.value.endswith(" mm")
 
 
-def test_placeholder_physics_is_flagged_as_critical(card):
-    assert card.banner.severity is BannerSeverity.CRITICAL
-    assert "NOT FOR FLIGHT" in card.banner.headline
+def test_preliminary_physics_is_flagged_as_a_caution(card):
+    assert card.banner.severity is BannerSeverity.CAUTION
+    assert "PRELIMINARY" in card.banner.headline
 
 
 def test_every_fidelity_level_has_a_banner():

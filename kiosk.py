@@ -22,12 +22,14 @@ from __future__ import annotations
 
 import argparse
 import tkinter as tk
+from collections.abc import Callable
 from pathlib import Path
 
 from aerosizer import (
     CatalogError,
     FlightMode,
     InputField,
+    Recommendation,
     Requirements,
     default_values,
     input_fields,
@@ -195,9 +197,20 @@ class KioskScreen(tk.Tk):
 
         self._field_steppers: dict[str, Stepper] = {}
 
+        # Anything that wants to react to the recommendation registers here.
+        # The kiosk never learns what those things are.
+        self._observers: list[Callable[[Recommendation], None]] = []
+        self._latest: Recommendation | None = None
+
         self._build_mission_controls()
         self._build_card_area()
         self._rebuild_input_fields()
+
+    def subscribe(self, observer: Callable[[Recommendation], None]) -> None:
+        """Call ``observer`` whenever the recommendation changes, and now."""
+        self._observers.append(observer)
+        if self._latest is not None:
+            observer(self._latest)
 
     # ---------------------------------------------------------------- layout
 
@@ -330,7 +343,12 @@ class KioskScreen(tk.Tk):
                 can_increase=value < field.maximum,
             )
 
-        self._render_card(build_assembly_card(recommend(self._requirements(), self._catalog)))
+        recommendation = recommend(self._requirements(), self._catalog)
+        self._latest = recommendation
+        self._render_card(build_assembly_card(recommendation))
+
+        for observer in self._observers:
+            observer(recommendation)
 
     def _render_card(self, card: AssemblyCard) -> None:
         for page, button in self._tab_buttons.items():

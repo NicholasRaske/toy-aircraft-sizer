@@ -141,7 +141,7 @@ def test_card_carries_the_assembly_instructions(catalog, loiter_requirements):
         assert entry.value in text
 
 
-def test_card_refuses_to_hide_placeholder_physics(catalog, loiter_requirements):
+def test_card_states_how_far_the_physics_can_be_trusted(catalog, loiter_requirements):
     card = render_assembly_card(recommend(loiter_requirements, catalog))
 
-    assert "NOT FOR FLIGHT" in card
+    assert "PRELIMINARY PHYSICS" in card

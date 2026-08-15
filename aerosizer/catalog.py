@@ -16,7 +16,15 @@ import json
 from pathlib import Path
 from typing import Any
 
-from aerosizer.parts import Catalog, Empennage, Engine, Fuselage, TailBoom, Wing
+from aerosizer.parts import (
+    Catalog,
+    Empennage,
+    Engine,
+    Fuselage,
+    NeutralPointCurve,
+    TailBoom,
+    Wing,
+)
 
 # Engine data sheets quote brake specific fuel consumption in g/kWh.
 # Internally it is kilograms of fuel per joule of shaft work.
@@ -33,13 +41,74 @@ def load_catalog(parts_directory: Path) -> Catalog:
     engine = _parse_sole_engine(_read_part_file(parts_directory / "engines.json"))
     wings = _parse_wings(_read_part_file(parts_directory / "wings.json"))
     empennages = _parse_empennages(_read_part_file(parts_directory / "empennages.json"))
+    neutral_points = _parse_neutral_points(
+        _read_part_file(parts_directory / "stability.json")
+    )
+
+    _reject_missing_stability(wings, empennages, neutral_points)
 
     return Catalog(
         fuselage=fuselage,
         engine=engine,
         wings=wings,
         empennages=empennages,
+        neutral_points=neutral_points,
     )
+
+
+def _parse_neutral_points(document: dict[str, Any]) -> tuple[NeutralPointCurve, ...]:
+    entries = _entry_list(document, "neutral_points", "stability.json")
+
+    curves = []
+    for entry in entries:
+        wing = _text(entry, "wing", "neutral point entry")
+        empennage = _text(entry, "empennage", "neutral point entry")
+        source = f"neutral points for '{wing} + {empennage}'"
+
+        extensions = _number_list(entry, "tail_extension_m", source)
+        stations = _number_list(entry, "neutral_point_station_m", source)
+        if len(extensions) != len(stations):
+            raise CatalogError(f"{source}: extension and station lists differ in length")
+        if list(extensions) != sorted(extensions):
+            raise CatalogError(f"{source}: extensions must be in increasing order")
+
+        curves.append(
+            NeutralPointCurve(
+                wing=wing,
+                empennage=empennage,
+                tail_extensions=extensions,
+                stations=stations,
+            )
+        )
+    return tuple(curves)
+
+
+def _number_list(entry: dict[str, Any], key: str, source: str) -> tuple[float, ...]:
+    if key not in entry:
+        raise CatalogError(f"{source} is missing '{key}'")
+    values = entry[key]
+    if not isinstance(values, list) or len(values) < 2:
+        raise CatalogError(f"{source}: '{key}' must be a list of at least two numbers")
+    for value in values:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise CatalogError(f"{source}: '{key}' must contain only numbers")
+    return tuple(float(value) for value in values)
+
+
+def _reject_missing_stability(
+    wings: tuple[Wing, ...],
+    empennages: tuple[Empennage, ...],
+    curves: tuple[NeutralPointCurve, ...],
+) -> None:
+    """Every pairing must have stability data, or it cannot be recommended."""
+    known = {(curve.wing, curve.empennage) for curve in curves}
+    for wing in wings:
+        for empennage in empennages:
+            if (wing.name, empennage.name) not in known:
+                raise CatalogError(
+                    f"stability.json has no neutral points for "
+                    f"'{wing.name} + {empennage.name}'. Run tools/generate_parts.py."
+                )
 
 
 def _read_part_file(path: Path) -> dict[str, Any]:

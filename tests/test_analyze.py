@@ -35,8 +35,13 @@ def test_every_speed_carries_the_reason_it_is_limited(baseline_configuration):
         assert speed.limited_by, "a limited speed must say what limits it"
 
 
-def test_placeholder_model_declares_itself(baseline_configuration):
-    assert analyze(baseline_configuration).fidelity is Fidelity.PLACEHOLDER
+def test_the_model_declares_how_far_it_can_be_trusted(baseline_configuration):
+    """Real formulae over real geometry, but two coefficients still guessed.
+
+    Fuel consumption is modelled at the engine's best point while cruise sits
+    near an eighth of full power, so endurance and range remain optimistic.
+    """
+    assert analyze(baseline_configuration).fidelity is Fidelity.PRELIMINARY
 
 
 def test_more_wing_area_lowers_stall_speed(baseline_configuration):

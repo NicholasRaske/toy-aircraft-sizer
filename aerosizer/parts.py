@@ -131,6 +131,39 @@ class Engine:
 
 
 @dataclass(frozen=True)
+class NeutralPointCurve:
+    """Where one wing and empennage pairing balances, against boom extension.
+
+    Sampled offline by a vortex lattice model and interpolated between. The
+    samples are ordered by extension, and the curve is close enough to a
+    straight line over this travel that linear interpolation costs nothing.
+    """
+
+    wing: str
+    empennage: str
+    tail_extensions: tuple[float, ...]
+    stations: tuple[float, ...]
+
+    def station_at(self, tail_extension: float) -> float:
+        """Neutral point at an extension, clamped to the sampled range."""
+        if tail_extension <= self.tail_extensions[0]:
+            return self.stations[0]
+        if tail_extension >= self.tail_extensions[-1]:
+            return self.stations[-1]
+
+        for index in range(1, len(self.tail_extensions)):
+            upper = self.tail_extensions[index]
+            if tail_extension <= upper:
+                lower = self.tail_extensions[index - 1]
+                fraction = (tail_extension - lower) / (upper - lower)
+                return self.stations[index - 1] + fraction * (
+                    self.stations[index] - self.stations[index - 1]
+                )
+
+        raise ValueError(f"Could not place {tail_extension} on the neutral point curve")
+
+
+@dataclass(frozen=True)
 class Catalog:
     """Everything in the crate.
 
@@ -144,3 +177,10 @@ class Catalog:
     engine: Engine
     wings: tuple[Wing, ...]
     empennages: tuple[Empennage, ...]
+    neutral_points: tuple[NeutralPointCurve, ...]
+
+    def neutral_point_curve(self, wing: Wing, empennage: Empennage) -> NeutralPointCurve:
+        for curve in self.neutral_points:
+            if curve.wing == wing.name and curve.empennage == empennage.name:
+                return curve
+        raise KeyError(f"No neutral point data for {wing.name} + {empennage.name}")

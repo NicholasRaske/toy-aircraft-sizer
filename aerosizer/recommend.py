@@ -9,14 +9,12 @@ twelve combinations, and a Raspberry Pi evaluates all of them in
 milliseconds -- so there is no optimiser here, no heuristic search and no
 cached answer table. Enumerate, then rank.
 
-BUILD STATE -- phase 2, step 6
-==============================
-Fuel is now sized for the stated mission rather than assumed. Tail extension
-is still held fully retracted; bisection on static margin is the next phase.
-
-There is also no flyability gate yet, so this will happily recommend a
-combination that cannot be trimmed. That gate must be in place before anyone
-builds hardware from this output.
+BUILD STATE -- phase 2 complete
+===============================
+Fuel is sized for the stated mission and the tail is trimmed to a target
+static margin. There is still no flyability gate, so this will recommend a
+combination that is badly out of balance rather than excluding it. That gate
+must be in place before anyone builds hardware from this output.
 """
 
 from __future__ import annotations
@@ -28,11 +26,10 @@ from aerosizer.analyze import analyze
 from aerosizer.atmosphere import atmosphere_at
 from aerosizer.config import Candidate, Configuration, Recommendation, Requirements
 from aerosizer.fuel import size_fuel
+from aerosizer.mass import mass_properties
 from aerosizer.parts import Catalog
 from aerosizer.ranking import explain_choice, figure_of_merit, rank_candidates
-
-# Replaced by bisection on static margin next phase.
-PLACEHOLDER_TAIL_EXTENSION = 0.0
+from aerosizer.stability import balance_of, solve_tail_extension
 
 
 def recommend(requirements: Requirements, catalog: Catalog) -> Recommendation:
@@ -47,6 +44,23 @@ def recommend(requirements: Requirements, catalog: Catalog) -> Recommendation:
         considered=ranked,
         rationale=explain_choice(chosen, runner_up),
     )
+
+
+def _trimmed(configuration: Configuration) -> Configuration:
+    """Set the boom to the extension that trims this loading.
+
+    Solved at takeoff mass, which is the critical case: the tank sits aft of
+    the balance point, so a full one carries the centre of gravity aft and
+    leaves the least margin.
+    """
+    boom = configuration.fuselage.tail_boom
+
+    def margin_at(extension: float) -> float:
+        trial = replace(configuration, tail_extension=extension)
+        return balance_of(trial, mass_properties(trial)).static_margin
+
+    solved = solve_tail_extension(margin_at, boom.max_extension)
+    return replace(configuration, tail_extension=boom.quantise(solved))
 
 
 def _evaluate_every_combination(
@@ -64,13 +78,14 @@ def _evaluate_every_combination(
             engine=catalog.engine,
             wing=wing,
             empennage=empennage,
-            tail_extension=PLACEHOLDER_TAIL_EXTENSION,
+            neutral_point_curve=catalog.neutral_point_curve(wing, empennage),
+            tail_extension=0.0,
             fuel_mass=0.0,
             payload_mass=requirements.payload_mass,
         )
 
         fuel = size_fuel(unfuelled, profile, atmosphere)
-        configuration = replace(unfuelled, fuel_mass=fuel.mass)
+        configuration = _trimmed(replace(unfuelled, fuel_mass=fuel.mass))
 
         candidates.append(
             Candidate(

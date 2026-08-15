@@ -10,35 +10,26 @@ them out means a ``Configuration`` arriving here is always fully determined,
 which is what makes the forward model exhaustively testable without a solver
 standing in the way.
 
-BUILD STATE -- phase 2, step 3
-==============================
-Mass, balance and the whole speed envelope are now real, derived from a
-component drag buildup and the power-required curve.
+BUILD STATE -- phase 2 complete
+===============================
+Mass, balance and the whole speed envelope are computed rather than invented.
+Results carry ``Fidelity.PRELIMINARY``: the formulae are real and the geometry
+is real, but two coefficients underneath them are not yet trustworthy.
 
-Only ``Balance`` remains invented, so results still carry
-``Fidelity.PLACEHOLDER`` -- the card quotes a static margin, and quoting a made
-up one loudly is better than quoting it quietly. It rises to ``PRELIMINARY``
-when the neutral point lands, and to ``VALIDATED`` when tabulated polars and
-part-load fuel consumption replace their stand-ins.
+The larger by far is fuel consumption, which is modelled at the engine's best
+point while the aircraft actually cruises at around an eighth of full power.
+Endurance and range are optimistic, probably by a factor of two or more, until
+that curve is measured.
 """
 
 from __future__ import annotations
 
 from aerosizer.aero import drag_polar
 from aerosizer.atmosphere import SEA_LEVEL_ISA, Atmosphere
-from aerosizer.config import (
-    Balance,
-    Configuration,
-    Fidelity,
-    Results,
-)
+from aerosizer.config import Configuration, Fidelity, Results
 from aerosizer.mass import mass_properties
 from aerosizer.performance import best_climb, speed_envelope
-
-PLACEHOLDER_NEUTRAL_POINT_STATION = 0.70
-PLACEHOLDER_STATIC_MARGIN = 0.12
-PLACEHOLDER_HORIZONTAL_TAIL_VOLUME = 0.55
-PLACEHOLDER_VERTICAL_TAIL_VOLUME = 0.035
+from aerosizer.stability import balance_of
 
 
 def analyze(configuration: Configuration, atmosphere: Atmosphere = SEA_LEVEL_ISA) -> Results:
@@ -46,15 +37,10 @@ def analyze(configuration: Configuration, atmosphere: Atmosphere = SEA_LEVEL_ISA
     mass = mass_properties(configuration)
 
     return Results(
-        fidelity=Fidelity.PLACEHOLDER,
+        fidelity=Fidelity.PRELIMINARY,
         mass=mass,
         envelope=speed_envelope(configuration, mass.all_up_mass, atmosphere),
         climb=best_climb(configuration, mass.all_up_mass, atmosphere),
-        balance=Balance(
-            neutral_point_station=PLACEHOLDER_NEUTRAL_POINT_STATION,
-            static_margin=PLACEHOLDER_STATIC_MARGIN,
-            horizontal_tail_volume=PLACEHOLDER_HORIZONTAL_TAIL_VOLUME,
-            vertical_tail_volume=PLACEHOLDER_VERTICAL_TAIL_VOLUME,
-        ),
+        balance=balance_of(configuration, mass),
         lift_to_drag_max=drag_polar(configuration).lift_to_drag_max,
     )

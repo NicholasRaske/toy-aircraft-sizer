@@ -23,7 +23,7 @@ from enum import Enum
 
 from aerosizer.atmosphere import SEA_LEVEL_ELEVATION, SEA_LEVEL_TEMPERATURE
 from aerosizer.mission import FlightMode, Mission, Segment, mode_of
-from aerosizer.parts import Empennage, Engine, Fuselage, Wing
+from aerosizer.parts import Empennage, Engine, Fuselage, NeutralPointCurve, Wing
 
 
 class Fidelity(Enum):
@@ -66,6 +66,7 @@ class Configuration:
     engine: Engine
     wing: Wing
     empennage: Empennage
+    neutral_point_curve: NeutralPointCurve
     tail_extension: float
     fuel_mass: float
     payload_mass: float

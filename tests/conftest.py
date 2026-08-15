@@ -42,11 +42,15 @@ def loiter_requirements() -> Requirements:
 @pytest.fixture
 def baseline_configuration(catalog: Catalog) -> Configuration:
     """The first wing and empennage in the catalogue, fully determined."""
+    wing = catalog.wings[0]
+    empennage = catalog.empennages[0]
+
     return Configuration(
         fuselage=catalog.fuselage,
         engine=catalog.engine,
-        wing=catalog.wings[0],
-        empennage=catalog.empennages[0],
+        wing=wing,
+        empennage=empennage,
+        neutral_point_curve=catalog.neutral_point_curve(wing, empennage),
         tail_extension=0.0,
         fuel_mass=2.0,
         payload_mass=4.0,
