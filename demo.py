@@ -126,6 +126,10 @@ def _isometric_figure(configuration):
     figure.patch.set_facecolor(BACKGROUND)
     for axes in figure.axes:
         axes.set_facecolor(BACKGROUND)
+
+    # Each pyplot figure owns a hidden Tk window, and mainloop runs until the
+    # process has none left, so a cached figure would outlive the demo.
+    plt.close(figure)
     return figure
 
 
