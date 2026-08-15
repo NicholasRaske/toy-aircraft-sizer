@@ -100,30 +100,68 @@ def speed_envelope(
     def power_at(airspeed: float) -> float:
         return power_required(polar, mass, atmosphere, airspeed)
 
-    def drag_at(airspeed: float) -> float:
-        return power_at(airspeed) / airspeed
-
-    # Minimum power is where the aircraft stays airborne most cheaply per
-    # second; minimum drag is where it does so most cheaply per metre.
-    min_power_speed = _minimise(power_at)
-    min_drag_speed = _minimise(drag_at)
+    min_power = minimum_power_speed(polar, mass, atmosphere)
+    min_drag = minimum_drag_speed(polar, mass, atmosphere)
 
     return SpeedEnvelope(
         stall_speed=stall,
-        min_power_speed=min_power_speed,
-        min_drag_speed=min_drag_speed,
+        min_power_speed=min_power,
+        min_drag_speed=min_drag,
         loiter_speed=_clipped_to_stall_margin(
-            min_power_speed, slowest_instructable, LIMITED_BY_MINIMUM_POWER
+            min_power, slowest_instructable, LIMITED_BY_MINIMUM_POWER
         ),
         cruise_speed=_clipped_to_stall_margin(
-            min_drag_speed, slowest_instructable, LIMITED_BY_MINIMUM_DRAG
+            min_drag, slowest_instructable, LIMITED_BY_MINIMUM_DRAG
         ),
         max_level_speed=_maximum_level_speed(
             power_at,
-            min_power_speed,
+            min_power,
             power_available(configuration.engine, atmosphere),
             slowest_instructable,
         ),
+    )
+
+
+def minimum_power_speed(polar: DragPolar, mass: float, atmosphere: Atmosphere) -> float:
+    """Where the aircraft stays airborne most cheaply per second."""
+    return _minimise(lambda airspeed: power_required(polar, mass, atmosphere, airspeed))
+
+
+def minimum_drag_speed(polar: DragPolar, mass: float, atmosphere: Atmosphere) -> float:
+    """Where the aircraft stays airborne most cheaply per metre."""
+    return _minimise(
+        lambda airspeed: power_required(polar, mass, atmosphere, airspeed) / airspeed
+    )
+
+
+def loiter_airspeed(
+    configuration: Configuration,
+    mass: float,
+    atmosphere: Atmosphere,
+) -> Limited:
+    """The speed to hold station at, respecting stall margin.
+
+    Separate from ``speed_envelope`` because flying a mission needs one speed
+    per sub-step, and searching for the others would double the work for
+    nothing.
+    """
+    polar = drag_polar(configuration)
+    slowest = minimum_safe_speed(stall_speed(mass, configuration.wing, atmosphere))
+    return _clipped_to_stall_margin(
+        minimum_power_speed(polar, mass, atmosphere), slowest, LIMITED_BY_MINIMUM_POWER
+    )
+
+
+def cruise_airspeed(
+    configuration: Configuration,
+    mass: float,
+    atmosphere: Atmosphere,
+) -> Limited:
+    """The speed to cover ground at, respecting stall margin."""
+    polar = drag_polar(configuration)
+    slowest = minimum_safe_speed(stall_speed(mass, configuration.wing, atmosphere))
+    return _clipped_to_stall_margin(
+        minimum_drag_speed(polar, mass, atmosphere), slowest, LIMITED_BY_MINIMUM_DRAG
     )
 
 

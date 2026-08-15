@@ -1,11 +1,14 @@
 """Command-line entry point: state a mission, get an assembly card.
 
 This is the deliberately ugly text interface. It exists so that the loop from
-requirements to a printed card closes end to end before any UI exists, while
-schema problems are still cheap to fix. The Streamlit app arrives at T6 and
-will call exactly the same two functions.
+requirements to a printed card closes end to end, while schema problems are
+still cheap to fix. The kiosk calls exactly the same functions.
 
-    python main.py --mode loiter --duration 1.0 --payload 4.0
+Its arguments are built from whichever fields the chosen mode declares, so a
+new mode becomes usable here the moment it exists.
+
+    python main.py --mode loiter --transit-distance 12 --station-time 90
+    python main.py --mode return_range --distance 40 --payload 3
 """
 
 from __future__ import annotations
@@ -16,14 +19,26 @@ from pathlib import Path
 from aerosizer import (
     CatalogError,
     FlightMode,
+    InputField,
+    Quantity,
     Requirements,
+    input_fields,
     load_catalog,
+    mission_from,
     recommend,
     render_assembly_card,
 )
-from aerosizer.units import hours_to_seconds
+from aerosizer.units import kilometres_to_metres, minutes_to_seconds
 
 DEFAULT_PARTS_DIRECTORY = Path(__file__).parent / "parts"
+
+# The command line takes the units a pilot would say out loud and converts
+# once, on the way in. Everything past this point is SI.
+ARGUMENT_UNIT: dict[Quantity, tuple[str, float]] = {
+    Quantity.DISTANCE: ("km", kilometres_to_metres(1.0)),
+    Quantity.DURATION: ("min", minutes_to_seconds(1.0)),
+    Quantity.MASS: ("kg", 1.0),
+}
 
 
 def main() -> int:
@@ -35,10 +50,15 @@ def main() -> int:
         print(f"Could not load the part catalogue: {error}")
         return 1
 
+    mode = FlightMode(arguments.mode)
+    values = {
+        field.key: getattr(arguments, field.key) * _si_per_display_unit(field)
+        for field in input_fields(mode)
+    }
+
     requirements = Requirements(
-        mode=FlightMode(arguments.mode),
-        duration=hours_to_seconds(arguments.duration),
-        payload_mass=arguments.payload,
+        mission=mission_from(mode, values),
+        payload_mass=values["payload_mass"],
     )
 
     print(render_assembly_card(recommend(requirements, catalog)))
@@ -46,34 +66,41 @@ def main() -> int:
 
 
 def _parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Recommend how to assemble the aircraft for a stated mission.",
-    )
-    parser.add_argument(
+    """Two passes: the mode decides which other arguments exist."""
+    shared = argparse.ArgumentParser(add_help=False)
+    shared.add_argument(
         "--mode",
         choices=[mode.value for mode in FlightMode],
         default=FlightMode.LOITER.value,
-        help="What the flight is optimised for.",
+        help="The shape of the sortie.",
     )
-    parser.add_argument(
-        "--duration",
-        type=float,
-        default=1.0,
-        help="Requested flight duration, in hours.",
-    )
-    parser.add_argument(
-        "--payload",
-        type=float,
-        default=4.0,
-        help="Payload mass, in kilograms.",
-    )
-    parser.add_argument(
+    shared.add_argument(
         "--parts",
         type=Path,
         default=DEFAULT_PARTS_DIRECTORY,
         help="Directory holding the part catalogue.",
     )
+    chosen, _ = shared.parse_known_args()
+
+    parser = argparse.ArgumentParser(
+        parents=[shared],
+        description="Recommend how to assemble the aircraft for a stated mission.",
+    )
+    for field in input_fields(FlightMode(chosen.mode)):
+        unit_name, si_per_unit = ARGUMENT_UNIT[field.quantity]
+        parser.add_argument(
+            f"--{field.key.replace('_', '-')}",
+            dest=field.key,
+            type=float,
+            default=field.default / si_per_unit,
+            help=f"{field.label.title()}, in {unit_name}.",
+        )
     return parser.parse_args()
+
+
+def _si_per_display_unit(field: InputField) -> float:
+    _, si_per_unit = ARGUMENT_UNIT[field.quantity]
+    return si_per_unit
 
 
 if __name__ == "__main__":

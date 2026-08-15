@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 
 from aerosizer import Catalog, Configuration, Requirements, load_catalog
-from aerosizer.config import FlightMode
-from aerosizer.units import hours_to_seconds
+from aerosizer.mission import LoiterMission
+from aerosizer.units import hours_to_seconds, kilometres_to_metres
 
 PARTS_DIRECTORY = Path(__file__).parent.parent / "parts"
 
@@ -31,8 +31,10 @@ def catalog() -> Catalog:
 @pytest.fixture
 def loiter_requirements() -> Requirements:
     return Requirements(
-        mode=FlightMode.LOITER,
-        duration=hours_to_seconds(1.0),
+        mission=LoiterMission(
+            transit_distance=kilometres_to_metres(10.0),
+            station_time=hours_to_seconds(1.0),
+        ),
         payload_mass=4.0,
     )
 

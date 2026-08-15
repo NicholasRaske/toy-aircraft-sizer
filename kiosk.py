@@ -22,29 +22,41 @@ from __future__ import annotations
 
 import argparse
 import tkinter as tk
-from dataclasses import replace
 from pathlib import Path
 
-from aerosizer import CatalogError, FlightMode, Requirements, load_catalog, recommend
-from aerosizer.assembly_card import AssemblyCard, BannerSeverity, build_assembly_card
+from aerosizer import (
+    CatalogError,
+    FlightMode,
+    InputField,
+    Requirements,
+    default_values,
+    input_fields,
+    load_catalog,
+    mission_from,
+    recommend,
+)
+from aerosizer.assembly_card import (
+    AssemblyCard,
+    BannerSeverity,
+    build_assembly_card,
+    format_field,
+)
+from aerosizer.mission import PAYLOAD_FIELD
 from aerosizer.parts import Catalog
-from aerosizer.units import format_duration, hours_to_seconds
 
 SCREEN_WIDTH = 480
 SCREEN_HEIGHT = 320
 
 # Modes are shown one at a time and cycled through, so the interface is the
-# same size whether there are four of them or forty. Adding a mode to the
+# same size whether there are three of them or thirty. Adding a mode to the
 # enum needs no change here at all.
 FLIGHT_MODES = tuple(FlightMode)
 
-# Input bounds are hard-coded placeholders. At T4 they are replaced by
-# envelope(mode, catalog), which reports what is actually achievable and makes
-# duration and payload re-clamp against each other.
-DURATION_STEP = 15 * 60.0
-DURATION_LIMITS = (15 * 60.0, 4 * 3600.0)
-PAYLOAD_STEP = 0.5
-PAYLOAD_LIMITS = (0.0, 8.0)
+# Modes ask for different numbers, so the input area is sized for the most
+# demanding of them and holds that height regardless. A panel that changed
+# shape when the mode changed would be worse than one that wastes a row.
+INPUT_ROW_HEIGHT = 25
+MAXIMUM_INPUT_FIELDS = max(len(input_fields(mode)) for mode in FLIGHT_MODES)
 
 BACKGROUND = "#0d1117"
 PANEL = "#161b22"
@@ -158,11 +170,11 @@ class KioskScreen(tk.Tk):
     def __init__(self, catalog: Catalog, fullscreen: bool) -> None:
         super().__init__()
         self._catalog = catalog
-        self._requirements = Requirements(
-            mode=FlightMode.LOITER,
-            duration=hours_to_seconds(1.0),
-            payload_mass=4.0,
-        )
+
+        # The mode and the values it asked for are the whole of the state.
+        # Requirements are rebuilt from them on every redraw.
+        self._mode = FlightMode.LOITER
+        self._values = default_values(self._mode)
 
         self.title("Aircraft Configuration Advisor")
         self.configure(background=BACKGROUND)
@@ -172,9 +184,11 @@ class KioskScreen(tk.Tk):
             self.attributes("-fullscreen", True)
             self.bind("<Escape>", lambda _event: self.destroy())
 
+        self._field_steppers: dict[str, Stepper] = {}
+
         self._build_mission_controls()
         self._build_card_area()
-        self._refresh()
+        self._rebuild_input_fields()
 
     # ---------------------------------------------------------------- layout
 
@@ -182,8 +196,29 @@ class KioskScreen(tk.Tk):
         self._mode_stepper = Stepper(
             self, "MODE", self._step_mode, decrease_label="<", increase_label=">"
         )
-        self._duration_stepper = Stepper(self, "DURATION", self._step_duration)
-        self._payload_stepper = Stepper(self, "PAYLOAD", self._step_payload)
+
+        self._fields_frame = tk.Frame(
+            self,
+            background=BACKGROUND,
+            height=MAXIMUM_INPUT_FIELDS * INPUT_ROW_HEIGHT,
+        )
+        self._fields_frame.pack(fill=tk.X)
+        self._fields_frame.pack_propagate(False)
+
+    def _rebuild_input_fields(self) -> None:
+        """Replace the input rows with whatever this mode asks for."""
+        for existing in self._fields_frame.winfo_children():
+            existing.destroy()
+
+        self._field_steppers = {
+            field.key: Stepper(
+                self._fields_frame,
+                field.label,
+                lambda direction, chosen=field: self._step_field(chosen, direction),
+            )
+            for field in input_fields(self._mode)
+        }
+        self._refresh()
 
     def _build_card_area(self) -> None:
         tk.Frame(self, background=RULE, height=1).pack(fill=tk.X, padx=6, pady=(4, 0))
@@ -225,51 +260,46 @@ class KioskScreen(tk.Tk):
 
     # ----------------------------------------------------------- interaction
 
-    def _select_mode(self, mode: FlightMode) -> None:
-        self._requirements = replace(self._requirements, mode=mode)
-        self._refresh()
-
     def _step_mode(self, direction: int) -> None:
         """Cycle to the neighbouring mode, wrapping at either end."""
-        position = FLIGHT_MODES.index(self._requirements.mode) + direction
-        self._select_mode(FLIGHT_MODES[position % len(FLIGHT_MODES)])
+        position = FLIGHT_MODES.index(self._mode) + direction
+        self._mode = FLIGHT_MODES[position % len(FLIGHT_MODES)]
 
-    def _step_duration(self, direction: int) -> None:
-        stepped = self._requirements.duration + direction * DURATION_STEP
-        self._requirements = replace(
-            self._requirements, duration=_clamp(stepped, DURATION_LIMITS)
-        )
-        self._refresh()
+        # A new mode asks for different numbers, but the payload is the same
+        # box of equipment either way, so it carries across.
+        carried = self._values.get(PAYLOAD_FIELD.key, PAYLOAD_FIELD.default)
+        self._values = default_values(self._mode)
+        self._values[PAYLOAD_FIELD.key] = carried
 
-    def _step_payload(self, direction: int) -> None:
-        stepped = self._requirements.payload_mass + direction * PAYLOAD_STEP
-        self._requirements = replace(
-            self._requirements, payload_mass=_clamp(stepped, PAYLOAD_LIMITS)
-        )
+        self._rebuild_input_fields()
+
+    def _step_field(self, field: InputField, direction: int) -> None:
+        stepped = self._values[field.key] + direction * field.step
+        self._values[field.key] = min(max(stepped, field.minimum), field.maximum)
         self._refresh()
 
     # --------------------------------------------------------------- redraw
 
+    def _requirements(self) -> Requirements:
+        return Requirements(
+            mission=mission_from(self._mode, self._values),
+            payload_mass=self._values[PAYLOAD_FIELD.key],
+        )
+
     def _refresh(self) -> None:
-        """Recompute from requirements and redraw everything that derives."""
+        """Recompute from mode and values, and redraw everything that derives."""
         # Modes wrap, so neither direction is ever unavailable.
-        self._mode_stepper.refresh(self._requirements.mode.value.replace("_", " ").upper())
+        self._mode_stepper.refresh(self._mode.value.replace("_", " ").upper())
 
-        duration = self._requirements.duration
-        self._duration_stepper.refresh(
-            format_duration(duration),
-            can_decrease=duration > DURATION_LIMITS[0],
-            can_increase=duration < DURATION_LIMITS[1],
-        )
+        for field in input_fields(self._mode):
+            value = self._values[field.key]
+            self._field_steppers[field.key].refresh(
+                format_field(field, value),
+                can_decrease=value > field.minimum,
+                can_increase=value < field.maximum,
+            )
 
-        payload = self._requirements.payload_mass
-        self._payload_stepper.refresh(
-            f"{payload:.1f} kg",
-            can_decrease=payload > PAYLOAD_LIMITS[0],
-            can_increase=payload < PAYLOAD_LIMITS[1],
-        )
-
-        self._render_card(build_assembly_card(recommend(self._requirements, self._catalog)))
+        self._render_card(build_assembly_card(recommend(self._requirements(), self._catalog)))
 
     def _render_card(self, card: AssemblyCard) -> None:
         for existing in self._card_frame.winfo_children():

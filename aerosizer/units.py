@@ -14,6 +14,7 @@ from __future__ import annotations
 
 SECONDS_PER_MINUTE = 60.0
 SECONDS_PER_HOUR = 3600.0
+METRES_PER_KILOMETRE = 1000.0
 MILLIMETRES_PER_METRE = 1000.0
 LITRES_PER_CUBIC_METRE = 1000.0
 
@@ -22,12 +23,28 @@ def hours_to_seconds(hours: float) -> float:
     return hours * SECONDS_PER_HOUR
 
 
+def minutes_to_seconds(minutes: float) -> float:
+    return minutes * SECONDS_PER_MINUTE
+
+
+def kilometres_to_metres(kilometres: float) -> float:
+    return kilometres * METRES_PER_KILOMETRE
+
+
 def metres_to_millimetres(metres: float) -> float:
     return metres * MILLIMETRES_PER_METRE
 
 
 def cubic_metres_to_litres(cubic_metres: float) -> float:
     return cubic_metres * LITRES_PER_CUBIC_METRE
+
+
+def format_distance(metres: float) -> str:
+    return f"{metres / METRES_PER_KILOMETRE:.1f} km"
+
+
+def format_mass(kilograms: float) -> str:
+    return f"{kilograms:.1f} kg"
 
 
 def format_duration(seconds: float) -> str:

@@ -22,20 +22,8 @@ from dataclasses import dataclass
 from enum import Enum
 
 from aerosizer.atmosphere import SEA_LEVEL_ELEVATION, SEA_LEVEL_TEMPERATURE
+from aerosizer.mission import FlightMode, Mission, Segment, mode_of
 from aerosizer.parts import Empennage, Engine, Fuselage, Wing
-
-
-class FlightMode(Enum):
-    """The shape of the sortie.
-
-    A mode selects which mission profile is flown and which numbers the pilot
-    is asked for. It does not select an objective: every mode is ranked the
-    same way, on the fuel needed to complete the mission that was stated.
-    """
-
-    LOITER = "loiter"
-    ONE_WAY_RANGE = "one_way_range"
-    RETURN_RANGE = "return_range"
 
 
 class Fidelity(Enum):
@@ -55,11 +43,19 @@ class Fidelity(Enum):
 class Requirements:
     """The mission, as stated by the pilot."""
 
-    mode: FlightMode
-    duration: float
+    mission: Mission
     payload_mass: float
     field_elevation: float = SEA_LEVEL_ELEVATION
     field_temperature: float = SEA_LEVEL_TEMPERATURE
+
+    @property
+    def mode(self) -> FlightMode:
+        """Derived from the mission, so the two can never disagree."""
+        return mode_of(self.mission)
+
+    @property
+    def profile(self) -> tuple[Segment, ...]:
+        return self.mission.profile()
 
 
 @dataclass(frozen=True)
@@ -165,11 +161,54 @@ class Results:
 
 
 @dataclass(frozen=True)
+class SegmentOutcome:
+    """What happened while flying one segment."""
+
+    segment: Segment
+    airspeed: float
+    duration: float
+    distance: float
+    fuel_burned: float
+    mass_at_start: float
+    mass_at_end: float
+
+
+@dataclass(frozen=True)
+class FlightLog:
+    """What an aircraft does when it flies a particular profile.
+
+    Kept apart from ``Results`` on purpose. ``Results`` describes what an
+    aircraft is capable of; this describes one sortie it was asked to fly.
+    """
+
+    outcomes: tuple[SegmentOutcome, ...]
+    fuel_aboard: float
+
+    @property
+    def total_fuel(self) -> float:
+        return sum(outcome.fuel_burned for outcome in self.outcomes)
+
+    @property
+    def total_duration(self) -> float:
+        return sum(outcome.duration for outcome in self.outcomes)
+
+    @property
+    def total_distance(self) -> float:
+        return sum(outcome.distance for outcome in self.outcomes)
+
+    @property
+    def completed(self) -> bool:
+        """Whether the fuel aboard was enough to finish."""
+        return self.total_fuel <= self.fuel_aboard
+
+
+@dataclass(frozen=True)
 class Candidate:
-    """One evaluated configuration, with its score under the chosen mode."""
+    """One evaluated configuration: what it is, and what it does."""
 
     configuration: Configuration
     results: Results
+    flight: FlightLog
     figure_of_merit: float
 
 

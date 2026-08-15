@@ -1,9 +1,10 @@
 """Smoke tests for the kiosk screen.
 
 The widget layer is deliberately thin, so it is deliberately barely tested.
-What matters is that it builds, that it survives every interaction, and that
-it holds no state of its own -- everything else worth asserting lives in
-``test_assembly_card`` where it can be checked without a display.
+What matters is that it builds, that it survives every interaction, that it
+holds no state of its own, and that it never branches on the mode. Everything
+else worth asserting lives in ``test_assembly_card`` and ``test_mission``,
+where it runs without a display.
 
 These tests skip cleanly on a headless machine.
 """
@@ -12,8 +13,9 @@ from __future__ import annotations
 
 import pytest
 
-from aerosizer import FlightMode
-from kiosk import DURATION_LIMITS, FLIGHT_MODES, PAYLOAD_LIMITS, KioskScreen
+from aerosizer import FlightMode, input_fields
+from aerosizer.mission import PAYLOAD_FIELD
+from kiosk import FLIGHT_MODES, KioskScreen
 
 
 @pytest.fixture
@@ -28,106 +30,24 @@ def screen(catalog):
     instance.destroy()
 
 
+def _switch_to(screen, mode: FlightMode) -> None:
+    while screen._mode is not mode:
+        screen._mode_stepper._increase.invoke()
+    screen.update()
+
+
 def test_screen_builds_and_lays_out(screen):
     screen.update()
 
     assert screen.winfo_children()
 
 
-def test_every_mode_can_be_selected(screen):
-    for mode in FlightMode:
-        screen._select_mode(mode)
-        screen.update()
+@pytest.mark.parametrize("mode", list(FlightMode))
+def test_the_inputs_are_whatever_the_mode_declared(screen, mode):
+    """The kiosk never names a field. It renders what it is handed."""
+    _switch_to(screen, mode)
 
-        assert screen._requirements.mode is mode
-
-
-def test_duration_stays_within_its_limits(screen):
-    for _ in range(50):
-        screen._step_duration(1)
-    assert screen._requirements.duration == pytest.approx(DURATION_LIMITS[1])
-
-    for _ in range(50):
-        screen._step_duration(-1)
-    assert screen._requirements.duration == pytest.approx(DURATION_LIMITS[0])
-
-
-def test_payload_stays_within_its_limits(screen):
-    for _ in range(50):
-        screen._step_payload(1)
-    assert screen._requirements.payload_mass == pytest.approx(PAYLOAD_LIMITS[1])
-
-    for _ in range(50):
-        screen._step_payload(-1)
-    assert screen._requirements.payload_mass == pytest.approx(PAYLOAD_LIMITS[0])
-
-
-def test_card_panel_is_rebuilt_rather_than_accumulated(screen):
-    screen.update()
-    before = len(screen._card_frame.winfo_children())
-
-    for _ in range(5):
-        screen._step_payload(1)
-    screen.update()
-
-    assert len(screen._card_frame.winfo_children()) == before
-
-
-@pytest.mark.parametrize("stepper_name", ["_duration_stepper", "_payload_stepper"])
-def test_stepper_buttons_are_wired_to_their_directions(screen, stepper_name):
-    """Regression: exercise the buttons, not just the handlers behind them.
-
-    The first version of this suite called the step handlers directly. It
-    passed while the minus button sat unreachable at the far end of its row,
-    so decrementing was impossible on the actual screen.
-    """
-    screen.update()
-    stepper = getattr(screen, stepper_name)
-
-    before = _mission_values(screen)
-    stepper._decrease.invoke()
-    assert _mission_values(screen) < before
-
-    stepper._increase.invoke()
-    assert _mission_values(screen) == pytest.approx(before)
-
-
-def test_a_direction_at_its_limit_is_shown_as_disabled(screen):
-    for _ in range(50):
-        screen._step_payload(-1)
-    screen.update()
-
-    # Silent clamping is indistinguishable from a dead button.
-    assert str(screen._payload_stepper._decrease.cget("state")) == "disabled"
-    assert str(screen._payload_stepper._increase.cget("state")) == "normal"
-
-
-def test_both_directions_are_available_away_from_the_limits(screen):
-    screen.update()
-
-    for stepper in (screen._duration_stepper, screen._payload_stepper):
-        assert str(stepper._decrease.cget("state")) == "normal"
-        assert str(stepper._increase.cget("state")) == "normal"
-
-
-def _mission_values(screen) -> float:
-    return screen._requirements.duration + screen._requirements.payload_mass
-
-
-def test_every_button_label_is_drawable_by_the_panel_font(screen):
-    """Regression: a typographic minus sign (U+2212) was not in the font.
-
-    Tk draws a missing glyph as a box containing its hex codepoint, so the
-    decrement button appeared on screen as a box reading 2212. Restricting
-    control labels to ASCII removes the whole class of failure, which matters
-    on a Raspberry Pi image carrying far fewer fonts than a desktop.
-    """
-    screen.update()
-
-    for stepper in _steppers(screen):
-        for button in (stepper._decrease, stepper._increase):
-            label = button.cget("text")
-            assert label.isascii(), f"control label {label!r} may not render on the panel font"
+    assert set(screen._field_steppers) == {field.key for field in input_fields(mode)}
 
 
 def test_stepping_forward_visits_every_mode_and_wraps(screen):
@@ -135,7 +55,7 @@ def test_stepping_forward_visits_every_mode_and_wraps(screen):
 
     visited = []
     for _ in range(len(FLIGHT_MODES) + 1):
-        visited.append(screen._requirements.mode)
+        visited.append(screen._mode)
         screen._mode_stepper._increase.invoke()
 
     assert set(visited) == set(FLIGHT_MODES)
@@ -144,17 +64,17 @@ def test_stepping_forward_visits_every_mode_and_wraps(screen):
 
 def test_stepping_backwards_wraps(screen):
     screen.update()
-    first = screen._requirements.mode
+    first = screen._mode
 
     screen._mode_stepper._decrease.invoke()
-    assert screen._requirements.mode is FLIGHT_MODES[-1]
+    assert screen._mode is FLIGHT_MODES[-1]
 
     screen._mode_stepper._increase.invoke()
-    assert screen._requirements.mode is first
+    assert screen._mode is first
 
 
 def test_neither_mode_direction_is_ever_disabled(screen):
-    # Modes wrap, so unlike duration and payload there is no end to reach.
+    # Modes wrap, so unlike the mission numbers there is no end to reach.
     for _ in range(len(FLIGHT_MODES) * 2):
         screen._mode_stepper._increase.invoke()
         screen.update()
@@ -164,36 +84,99 @@ def test_neither_mode_direction_is_ever_disabled(screen):
 
 
 def test_the_panel_never_changes_size_as_modes_are_cycled(screen):
-    """The property this control exists for.
+    """Modes ask for different numbers; the panel must not resize for them.
 
-    Showing one mode at a time is what makes the interface immune to the
-    number of modes: the value is a fixed-width field, so no mode name can
-    widen the row and no new entry in FlightMode can force a redesign.
+    Loiter needs two figures and the range modes one, so the input area is
+    sized for the most demanding mode and holds that height throughout.
     """
     screen.update()
 
-    value_widths = set()
     panel_heights = set()
     for _ in FLIGHT_MODES:
         screen._mode_stepper._increase.invoke()
         screen.update()
-        value_widths.add(screen._mode_stepper._value_label.winfo_width())
         panel_heights.add(screen.winfo_reqheight())
 
-    assert len(value_widths) == 1, "the mode field must not resize to fit its content"
     assert len(panel_heights) == 1
 
 
-def test_all_three_inputs_share_one_control_shape(screen):
+def test_payload_carries_across_a_mode_change(screen):
     screen.update()
 
-    widths = {stepper._value_label.winfo_width() for stepper in _steppers(screen)}
-    assert len(widths) == 1, "mode, duration and payload should align as one column"
+    for _ in range(3):
+        screen._field_steppers[PAYLOAD_FIELD.key]._increase.invoke()
+    carried = screen._values[PAYLOAD_FIELD.key]
+
+    screen._mode_stepper._increase.invoke()
+    screen.update()
+
+    assert screen._values[PAYLOAD_FIELD.key] == pytest.approx(carried)
 
 
-def _steppers(screen):
-    return (screen._mode_stepper, screen._duration_stepper, screen._payload_stepper)
+@pytest.mark.parametrize("mode", list(FlightMode))
+def test_every_field_steps_both_ways(screen, mode):
+    _switch_to(screen, mode)
+
+    for field in input_fields(mode):
+        stepper = screen._field_steppers[field.key]
+
+        before = screen._values[field.key]
+        stepper._increase.invoke()
+        assert screen._values[field.key] > before
+
+        stepper._decrease.invoke()
+        assert screen._values[field.key] == pytest.approx(before)
 
 
-def _mission_values(screen) -> float:
-    return screen._requirements.duration + screen._requirements.payload_mass
+@pytest.mark.parametrize("mode", list(FlightMode))
+def test_every_field_stays_within_its_declared_bounds(screen, mode):
+    _switch_to(screen, mode)
+
+    for field in input_fields(mode):
+        stepper = screen._field_steppers[field.key]
+
+        for _ in range(300):
+            stepper._increase.invoke()
+        assert screen._values[field.key] == pytest.approx(field.maximum)
+        assert str(stepper._increase.cget("state")) == "disabled"
+
+        for _ in range(300):
+            stepper._decrease.invoke()
+        assert screen._values[field.key] == pytest.approx(field.minimum)
+        assert str(stepper._decrease.cget("state")) == "disabled"
+
+
+def test_card_panel_is_rebuilt_rather_than_accumulated(screen):
+    screen.update()
+    before = len(screen._card_frame.winfo_children())
+
+    for _ in range(5):
+        screen._field_steppers[PAYLOAD_FIELD.key]._increase.invoke()
+    screen.update()
+
+    assert len(screen._card_frame.winfo_children()) == before
+
+
+def test_every_control_label_is_drawable_by_the_panel_font(screen):
+    """Regression: a typographic minus sign (U+2212) was not in the font.
+
+    Tk draws a missing glyph as a box containing its hex codepoint, so the
+    decrement button appeared on screen as a box reading 2212. Restricting
+    control labels to ASCII removes the whole class of failure, which matters
+    on a Raspberry Pi image carrying far fewer fonts than a desktop.
+    """
+    screen.update()
+
+    for stepper in [screen._mode_stepper, *screen._field_steppers.values()]:
+        for button in (stepper._decrease, stepper._increase):
+            label = button.cget("text")
+            assert label.isascii(), f"control label {label!r} may not render on the panel font"
+
+
+def test_all_inputs_share_one_control_shape(screen):
+    screen.update()
+
+    steppers = [screen._mode_stepper, *screen._field_steppers.values()]
+    widths = {stepper._value_label.winfo_width() for stepper in steppers}
+
+    assert len(widths) == 1, "every input should align as one column"

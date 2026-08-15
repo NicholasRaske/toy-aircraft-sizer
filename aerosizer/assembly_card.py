@@ -22,11 +22,30 @@ from enum import Enum
 
 from aerosizer.config import Fidelity, Recommendation, Requirements
 from aerosizer.fuel import volume_for_mass
+from aerosizer.mission import InputField, Quantity, mission_fields
 from aerosizer.units import (
     cubic_metres_to_litres,
+    format_distance,
     format_duration,
+    format_mass,
     metres_to_millimetres,
 )
+
+# The one place that decides how each kind of number is worded. Every
+# interface formats through this, so none of them can disagree.
+QUANTITY_FORMAT = {
+    Quantity.DISTANCE: format_distance,
+    Quantity.DURATION: format_duration,
+    Quantity.MASS: format_mass,
+}
+
+
+def format_quantity(quantity: Quantity, value: float) -> str:
+    return QUANTITY_FORMAT[quantity](value)
+
+
+def format_field(field: InputField, value: float) -> str:
+    return format_quantity(field.quantity, value)
 
 
 class BannerSeverity(Enum):
@@ -140,11 +159,19 @@ def build_assembly_card(recommendation: Recommendation) -> AssemblyCard:
 
 
 def _describe_mission(requirements: Requirements) -> tuple[str, ...]:
-    return (
-        requirements.mode.value.replace("_", " ").title(),
-        format_duration(requirements.duration),
-        f"{requirements.payload_mass:.1f} kg payload",
+    """Read the mission back out through the fields the mode declared.
+
+    Nothing here knows which mission it is holding, so a new mode describes
+    itself without this function changing.
+    """
+    mode = requirements.mode
+    described = [mode.value.replace("_", " ").title()]
+    described.extend(
+        f"{format_field(field, getattr(requirements.mission, field.key))} {field.label.lower()}"
+        for field in mission_fields(mode)
     )
+    described.append(f"{format_mass(requirements.payload_mass)} payload")
+    return tuple(described)
 
 
 CARD_WIDTH = 62

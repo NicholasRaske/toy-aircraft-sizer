@@ -18,18 +18,17 @@ until then.
 
 from __future__ import annotations
 
-from aerosizer.config import Candidate, Results
+from aerosizer.config import Candidate, FlightLog
+from aerosizer.units import format_mass
 
 
-def figure_of_merit(results: Results) -> float:
-    """Score a configuration. Higher is better.
+def figure_of_merit(flight: FlightLog) -> float:
+    """Score a configuration on the mission it was asked to fly.
 
-    The real objective is fuel burned over the stated mission, which needs
-    ``fly`` (step 5). Until then lift-to-drag stands in for it: a more
-    efficient aircraft burns less over the same route. Directionally right,
-    and replaced by the real figure at step 6.
+    Higher is better, so the fuel burned is negated: the cheapest way to
+    complete the stated mission wins.
     """
-    return results.lift_to_drag_max
+    return -flight.total_fuel
 
 
 def rank_candidates(candidates: tuple[Candidate, ...]) -> tuple[Candidate, ...]:
@@ -47,15 +46,11 @@ def rank_candidates(candidates: tuple[Candidate, ...]) -> tuple[Candidate, ...]:
 
 
 def explain_choice(chosen: Candidate, runner_up: Candidate | None) -> str:
-    """One line of reasoning: why this one, and what it beat.
-
-    The fuel difference against the runner-up belongs here and arrives with
-    the mission model. Until then the line names the alternative without
-    quantifying the gap, rather than quoting a number that is not yet real.
-    """
-    reason = "Chosen as the most efficient of the available combinations."
+    """One line of reasoning: why this one, and what it beat."""
+    reason = "Chosen for the lowest fuel burn."
     if runner_up is None:
         return reason
 
     alternative = f"{runner_up.configuration.wing.name} + {runner_up.configuration.empennage.name}"
-    return f"{reason} Next best: {alternative}."
+    extra = runner_up.flight.total_fuel - chosen.flight.total_fuel
+    return f"{reason} Next best: {alternative}, {format_mass(extra)} more."

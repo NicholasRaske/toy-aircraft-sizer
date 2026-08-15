@@ -12,11 +12,23 @@ not-for-flight banner.
 
 from __future__ import annotations
 
-from dataclasses import replace
-
 import pytest
 
-from aerosizer import FlightMode, recommend, render_assembly_card
+from aerosizer import (
+    FlightMode,
+    Requirements,
+    default_values,
+    mission_from,
+    recommend,
+    render_assembly_card,
+)
+
+
+def _requirements_for(mode: FlightMode, payload_mass: float = 4.0) -> Requirements:
+    return Requirements(
+        mission=mission_from(mode, default_values(mode)),
+        payload_mass=payload_mass,
+    )
 
 
 def test_every_combination_is_considered_exactly_once(catalog, loiter_requirements):
@@ -33,7 +45,7 @@ def test_every_combination_is_considered_exactly_once(catalog, loiter_requiremen
 
 def test_a_recommendation_is_always_returned(catalog, loiter_requirements):
     for mode in FlightMode:
-        recommendation = recommend(replace(loiter_requirements, mode=mode), catalog)
+        recommendation = recommend(_requirements_for(mode), catalog)
 
         assert recommendation.chosen is not None
         assert recommendation.rationale
@@ -70,11 +82,10 @@ def test_every_mode_is_ranked_the_same_way(catalog, loiter_requirements):
     """A mode selects the profile flown, not what counts as better.
 
     All three are ranked on the fuel needed to complete the stated mission, so
-    with the mission held constant they cannot disagree about which
-    configuration is most efficient.
+    they cannot disagree about which configuration is most efficient.
     """
     chosen = {
-        recommend(replace(loiter_requirements, mode=mode), catalog).configuration.wing.name
+        recommend(_requirements_for(mode), catalog).configuration.wing.name
         for mode in FlightMode
     }
 

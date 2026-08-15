@@ -34,7 +34,12 @@ def test_card_is_ordered_by_assembly_sequence(card):
 
 
 def test_mission_is_described_in_pilot_units(card):
-    assert card.mission == ("Loiter", "1 h 00 min", "4.0 kg payload")
+    assert card.mission == (
+        "Loiter",
+        "10.0 km to site",
+        "1 h 00 min on station",
+        "4.0 kg payload",
+    )
 
 
 def test_fuel_is_instructed_as_a_volume(card):
