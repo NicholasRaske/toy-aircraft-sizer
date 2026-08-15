@@ -1,12 +1,16 @@
-"""Translating a configuration into AeroSandbox geometry.
+"""Translating parts into AeroSandbox geometry.
 
-This is the bridge, and it only crosses one way: it reads ``aerosizer`` domain
-objects and produces an ``asb.Airplane``. Nothing in ``aerosizer`` knows this
+Build-time only, and the bridge only crosses one way: it reads ``aerosizer``
+parts and produces an ``asb.Airplane``. Nothing in ``aerosizer`` knows this
 module exists.
+
+It takes parts rather than a ``Configuration`` because it is used to *generate*
+the stability data a configuration requires, so it cannot depend on that data
+already existing.
 
 The catalogue records what a part weighs and where it sits, not what it looks
 like. Turning those into a three-dimensional shape needs assumptions, and they
-are all gathered in SHAPE ASSUMPTIONS below rather than scattered through the
+are gathered in SHAPE ASSUMPTIONS below rather than scattered through the
 construction. When the catalogue grows real geometry, this is the section that
 shrinks.
 """
@@ -15,19 +19,18 @@ from __future__ import annotations
 
 import aerosandbox as asb
 
-from aerosizer.config import Configuration
-from aerosizer.parts import Empennage, Wing
+from aerosizer.parts import Empennage, Fuselage, Wing
 
 # ------------------------------------------------------------ SHAPE ASSUMPTIONS
 #
-# None of these are in the catalogue yet. Each is a guess that only affects
-# drawing and drag buildup, never mass or balance.
+# None of these are in the catalogue. Each affects drawing and drag buildup,
+# never mass or balance.
 
 TAIL_AIRFOIL = "naca0010"
 HORIZONTAL_TAIL_ASPECT_RATIO = 4.0
 VERTICAL_TAIL_ASPECT_RATIO = 1.5
 
-# Body radius at fractions along the main body. A blunt nose, a parallel middle
+# Body radius at fractions along the main body: a blunt nose, a parallel middle
 # wide enough for payload and tank, and a taper into the tail boom.
 BODY_PROFILE = (
     (0.00, 0.010),
@@ -43,46 +46,64 @@ BODY_PROFILE = (
 BOOM_RADIUS = 0.022
 BOOM_OVERHANG = 0.08
 
-# Where the wing sits vertically, and how far the fin rises above the boom.
 WING_VERTICAL_OFFSET = 0.06
 FIN_ROOT_OFFSET = 0.015
 
 QUARTER_CHORD = 0.25
 
 
-def airplane_for(configuration: Configuration) -> asb.Airplane:
+def airplane_for(
+    wing: Wing,
+    empennage: Empennage,
+    fuselage: Fuselage,
+    tail_extension: float = 0.0,
+) -> asb.Airplane:
     """Build the AeroSandbox model of one assembled aircraft."""
     return asb.Airplane(
-        name=f"{configuration.wing.name} + {configuration.empennage.name}",
-        xyz_ref=[configuration.wing.aerodynamic_centre_station, 0.0, 0.0],
+        name=f"{wing.name} + {empennage.name}",
+        xyz_ref=[wing.aerodynamic_centre_station, 0.0, 0.0],
         wings=[
-            main_wing_of(configuration.wing),
-            horizontal_tail_of(configuration.empennage, configuration.tail_extension),
-            vertical_tail_of(configuration.empennage, configuration.tail_extension),
+            main_wing_of(wing),
+            horizontal_tail_of(empennage, tail_extension),
+            vertical_tail_of(empennage, tail_extension),
         ],
-        fuselages=[body_of(configuration)],
+        fuselages=[body_of(fuselage, empennage, tail_extension)],
+    )
+
+
+def airplane_for_configuration(configuration) -> asb.Airplane:
+    """Convenience for callers that already hold an assembled configuration."""
+    return airplane_for(
+        configuration.wing,
+        configuration.empennage,
+        configuration.fuselage,
+        configuration.tail_extension,
     )
 
 
 def main_wing_of(wing: Wing) -> asb.Wing:
     """A straight tapered wing, quarter chord on its aerodynamic centre."""
     airfoil = asb.Airfoil(_airfoil_name(wing.airfoil))
-    half_span = wing.span / 2.0
-
-    root_leading_edge = wing.aerodynamic_centre_station - QUARTER_CHORD * wing.root_chord
-    tip_leading_edge = wing.aerodynamic_centre_station - QUARTER_CHORD * wing.tip_chord
 
     return asb.Wing(
         name=wing.name,
         symmetric=True,
         xsecs=[
             asb.WingXSec(
-                xyz_le=[root_leading_edge, 0.0, WING_VERTICAL_OFFSET],
+                xyz_le=[
+                    wing.aerodynamic_centre_station - QUARTER_CHORD * wing.root_chord,
+                    0.0,
+                    WING_VERTICAL_OFFSET,
+                ],
                 chord=wing.root_chord,
                 airfoil=airfoil,
             ),
             asb.WingXSec(
-                xyz_le=[tip_leading_edge, half_span, WING_VERTICAL_OFFSET],
+                xyz_le=[
+                    wing.aerodynamic_centre_station - QUARTER_CHORD * wing.tip_chord,
+                    wing.span / 2.0,
+                    WING_VERTICAL_OFFSET,
+                ],
                 chord=wing.tip_chord,
                 airfoil=airfoil,
             ),
@@ -132,16 +153,17 @@ def vertical_tail_of(empennage: Empennage, tail_extension: float) -> asb.Wing:
     )
 
 
-def body_of(configuration: Configuration) -> asb.Fuselage:
+def body_of(
+    fuselage: Fuselage,
+    empennage: Empennage,
+    tail_extension: float,
+) -> asb.Fuselage:
     """The main body, plus the boom that carries the empennage aft of it."""
-    boom = configuration.fuselage.tail_boom
-    body_length = boom.root_station
+    body_length = fuselage.tail_boom.root_station
 
-    _, tail_chord = _planform(
-        configuration.empennage.horizontal_tail_area, HORIZONTAL_TAIL_ASPECT_RATIO
-    )
+    _, tail_chord = _planform(empennage.horizontal_tail_area, HORIZONTAL_TAIL_ASPECT_RATIO)
     boom_end = (
-        configuration.empennage.aerodynamic_centre_station(configuration.tail_extension)
+        empennage.aerodynamic_centre_station(tail_extension)
         + (1.0 - QUARTER_CHORD) * tail_chord
         + BOOM_OVERHANG
     )
@@ -155,7 +177,7 @@ def body_of(configuration: Configuration) -> asb.Fuselage:
         for station in (body_length + 0.02, boom_end)
     )
 
-    return asb.Fuselage(name=configuration.fuselage.name, xsecs=sections)
+    return asb.Fuselage(name=fuselage.name, xsecs=sections)
 
 
 def _planform(area: float, aspect_ratio: float) -> tuple[float, float]:

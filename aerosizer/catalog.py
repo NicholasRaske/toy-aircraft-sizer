@@ -35,8 +35,14 @@ class CatalogError(Exception):
     """Raised when a part file is missing, malformed, or physically absurd."""
 
 
-def load_catalog(parts_directory: Path) -> Catalog:
-    """Read a complete catalogue from a directory of JSON part files."""
+def load_catalog(parts_directory: Path, *, require_stability: bool = True) -> Catalog:
+    """Read a complete catalogue from a directory of JSON part files.
+
+    ``require_stability`` exists solely so that the generator can bootstrap:
+    it has to read the catalogue in order to compute the neutral points that a
+    complete catalogue is required to have. Nothing on the aircraft ever
+    passes it.
+    """
     fuselage = _parse_fuselage(_read_part_file(parts_directory / "fuselage.json"))
     engine = _parse_sole_engine(_read_part_file(parts_directory / "engines.json"))
     wings = _parse_wings(_read_part_file(parts_directory / "wings.json"))
@@ -45,7 +51,8 @@ def load_catalog(parts_directory: Path) -> Catalog:
         _read_part_file(parts_directory / "stability.json")
     )
 
-    _reject_missing_stability(wings, empennages, neutral_points)
+    if require_stability:
+        _reject_missing_stability(wings, empennages, neutral_points)
 
     return Catalog(
         fuselage=fuselage,

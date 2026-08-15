@@ -30,7 +30,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from aerosizer import CatalogError, Recommendation, load_catalog
 from kiosk import BACKGROUND, MUTED, SCREEN_HEIGHT, SCREEN_WIDTH, TEXT, KioskScreen
-from tools.asb_geometry import airplane_for
+from tools.geometry import airplane_for_configuration
 
 VIEW_WIDTH = 700
 VIEW_HEIGHT = 560
@@ -119,7 +119,7 @@ class AircraftView(tk.Toplevel):
 
 def _isometric_figure(configuration):
     """Render one configuration and hand back the figure it drew into."""
-    airplane = airplane_for(configuration)
+    airplane = airplane_for_configuration(configuration)
     airplane.draw_wireframe(show=False)
 
     figure = plt.gcf()

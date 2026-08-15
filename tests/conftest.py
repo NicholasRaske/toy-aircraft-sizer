@@ -41,9 +41,14 @@ def loiter_requirements() -> Requirements:
 
 @pytest.fixture
 def baseline_configuration(catalog: Catalog) -> Configuration:
-    """The first wing and empennage in the catalogue, fully determined."""
-    wing = catalog.wings[0]
-    empennage = catalog.empennages[0]
+    """Surveyor and Standard, fully determined.
+
+    Named rather than indexed: the catalogue is ordered by wing area, so an
+    index would quietly change which aircraft every hand-computed expectation
+    in the suite refers to.
+    """
+    wing = next(part for part in catalog.wings if part.name == "Surveyor")
+    empennage = next(part for part in catalog.empennages if part.name == "Standard")
 
     return Configuration(
         fuselage=catalog.fuselage,

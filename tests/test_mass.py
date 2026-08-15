@@ -17,16 +17,16 @@ from aerosizer.mass import FUEL, PAYLOAD, mass_items, mass_properties
 #
 #   fuselage   8.5 kg @ 0.75 m = 6.375
 #   engine     2.6 kg @ 0.18 m = 0.468
-#   wing       3.2 kg @ 0.62 m = 1.984
+#   wing       3.6 kg @ 0.62 m = 2.232
 #   empennage  1.1 kg @ 1.85 m = 2.035
 #   boom       0.0 kg          = 0.000
 #   payload    4.0 kg @ 0.55 m = 2.200
 #   fuel       2.0 kg @ 0.70 m = 1.400
 #                               -------
-#   21.4 kg                      14.462 kg m  ->  CG 0.6758 m
-EXPECTED_EMPTY_MASS = 15.4
-EXPECTED_ALL_UP_MASS = 21.4
-EXPECTED_CENTRE_OF_GRAVITY = 0.6758
+#   21.8 kg                      14.710 kg m  ->  CG 0.6748 m
+EXPECTED_EMPTY_MASS = 15.8
+EXPECTED_ALL_UP_MASS = 21.8
+EXPECTED_CENTRE_OF_GRAVITY = 0.6748
 
 
 def test_all_up_mass_is_the_sum_of_its_parts(baseline_configuration):

@@ -19,10 +19,16 @@ changes at all.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
+
+# A mission with no deadline is flown as cheaply as the aircraft can manage.
+# Expressed as an infinite time rather than a flag, so the arithmetic that
+# turns a deadline into a required speed needs no special case.
+NO_DEADLINE = math.inf
 
 
 class FlightMode(Enum):
@@ -48,9 +54,19 @@ class Quantity(Enum):
 
 @dataclass(frozen=True)
 class CruiseSegment:
-    """Cover a distance."""
+    """Cover a distance, at no less than a required speed.
+
+    Left to itself the aircraft covers ground most cheaply at its minimum drag
+    speed. A deadline overrides that: the leg still has to be flown, just
+    faster and thirstier. ``required_speed`` of zero means no deadline.
+
+    This is what lets a wing choice depend on more than efficiency. Flying
+    above the minimum drag speed costs a big wing more than a small one,
+    because parasite drag grows with area and with the square of speed.
+    """
 
     distance: float
+    required_speed: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -83,22 +99,27 @@ class LoiterMission:
 
 @dataclass(frozen=True)
 class OneWayRangeMission:
-    """Fly there. Recovery elsewhere is somebody else's problem."""
+    """Fly there, within a stated time. Recovery elsewhere is somebody else's
+    problem."""
 
     distance: float
+    time_limit: float = NO_DEADLINE
 
     def profile(self) -> tuple[Segment, ...]:
-        return (CruiseSegment(self.distance),)
+        return (CruiseSegment(self.distance, self.distance / self.time_limit),)
 
 
 @dataclass(frozen=True)
 class ReturnRangeMission:
-    """Fly there and back."""
+    """Fly there and back, within a stated time."""
 
     distance: float
+    time_limit: float = NO_DEADLINE
 
     def profile(self) -> tuple[Segment, ...]:
-        leg = CruiseSegment(self.distance)
+        # The deadline covers the whole sortie, so both legs share the pace.
+        required_speed = 2.0 * self.distance / self.time_limit
+        leg = CruiseSegment(self.distance, required_speed)
         return (leg, leg)
 
 
@@ -167,6 +188,15 @@ MISSION_FIELDS: dict[FlightMode, tuple[InputField, ...]] = {
             step=5.0 * _KILOMETRE,
             default=60.0 * _KILOMETRE,
         ),
+        InputField(
+            key="time_limit",
+            label="WITHIN",
+            quantity=Quantity.DURATION,
+            minimum=10.0 * _MINUTE,
+            maximum=480.0 * _MINUTE,
+            step=5.0 * _MINUTE,
+            default=60.0 * _MINUTE,
+        ),
     ),
     FlightMode.RETURN_RANGE: (
         InputField(
@@ -177,6 +207,15 @@ MISSION_FIELDS: dict[FlightMode, tuple[InputField, ...]] = {
             maximum=200.0 * _KILOMETRE,
             step=5.0 * _KILOMETRE,
             default=30.0 * _KILOMETRE,
+        ),
+        InputField(
+            key="time_limit",
+            label="WITHIN",
+            quantity=Quantity.DURATION,
+            minimum=10.0 * _MINUTE,
+            maximum=480.0 * _MINUTE,
+            step=5.0 * _MINUTE,
+            default=60.0 * _MINUTE,
         ),
     ),
 }

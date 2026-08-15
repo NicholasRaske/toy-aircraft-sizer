@@ -32,10 +32,10 @@ from aerosizer.performance import (
     stall_speed,
 )
 
-# Surveyor at the baseline 21.4 kg, sea level ISA, CL max 1.318:
-#   W = 21.4 x 9.80665 = 209.86 N
-#   Vs = sqrt(2 x 209.86 / (1.225 x 1.6 x 1.318)) = 12.75 m/s
-EXPECTED_BASELINE_STALL_SPEED = 12.75
+# Surveyor at the baseline 21.8 kg, sea level ISA, CL max 1.318:
+#   W = 21.8 x 9.80665 = 213.78 N
+#   Vs = sqrt(2 x 213.78 / (1.225 x 1.6 x 1.318)) = 12.87 m/s
+EXPECTED_BASELINE_STALL_SPEED = 12.87
 
 
 def test_sea_level_density_matches_the_standard_atmosphere():

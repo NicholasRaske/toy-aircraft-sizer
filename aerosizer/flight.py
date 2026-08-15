@@ -23,7 +23,7 @@ from aerosizer.config import Configuration, FlightLog, SegmentOutcome
 from aerosizer.mass import mass_properties
 from aerosizer.mission import CruiseSegment, LoiterSegment, Segment
 from aerosizer.parts import Engine
-from aerosizer.performance import cruise_airspeed, loiter_airspeed, power_required
+from aerosizer.performance import loiter_airspeed, power_required, speed_envelope
 
 # Sub-steps per segment. Enough that the mass change within a step is small
 # compared with the mass itself; convergence against a finer step is tested.
@@ -109,9 +109,16 @@ def _airspeed_for(
     mass: float,
     atmosphere: Atmosphere,
 ) -> float:
-    """Cover ground as cheaply per metre; hold station as cheaply per second."""
+    """Cover ground as cheaply per metre; hold station as cheaply per second.
+
+    A cruise segment carrying a deadline overrides the cheap answer with a
+    faster one, capped at what the aircraft can actually sustain in level
+    flight. Where the cap binds, the leg simply takes longer than asked.
+    """
     if isinstance(segment, CruiseSegment):
-        return cruise_airspeed(configuration, mass, atmosphere).value
+        envelope = speed_envelope(configuration, mass, atmosphere)
+        wanted = max(envelope.cruise_speed.value, segment.required_speed)
+        return min(wanted, envelope.max_level_speed.value)
     return loiter_airspeed(configuration, mass, atmosphere).value
 
 
